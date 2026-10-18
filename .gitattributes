@@ -1,0 +1,6 @@
+# 텍스트 파일의 줄바꿈을 Git에서 자동으로 정규화한다.
+* text=auto
+
+# 외부 의존성과 라이선스는 추적하되 GitHub 언어 통계에서 제외한다.
+ThirdParty/** linguist-vendored linguist-detectable=false
+Licenses/** linguist-vendored linguist-detectable=false

@@ -1,0 +1,298 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="소스 파일">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="소스 파일\Headers">
+      <UniqueIdentifier>{78e75dc1-d795-4ac0-b584-3e535c69d57a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\App">
+      <UniqueIdentifier>{7c447bda-7294-4289-b9a4-1838fff955e1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\World">
+      <UniqueIdentifier>{d7da47e1-5b16-4c05-80a0-2b45fb79857b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Main">
+      <UniqueIdentifier>{5effe34e-3e99-499f-af68-06249bc84f9d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Actors">
+      <UniqueIdentifier>{da3b877b-a61f-4256-9271-8b257a06c658}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Components">
+      <UniqueIdentifier>{846057a0-bf52-4b3f-b411-4f323999d5bf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Mechanics">
+      <UniqueIdentifier>{de60a6db-2adf-4b6d-a26f-c814d52c04b6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Managers">
+      <UniqueIdentifier>{a9bfa484-8a8f-44f7-990b-e1d873dbe4cd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Mechanics\Camera">
+      <UniqueIdentifier>{ec9d7031-b375-4415-89f2-5c1c3a7870af}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Actors\LightActors">
+      <UniqueIdentifier>{ced4b4cd-fd52-4e4b-abc7-d51c10307401}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Actors\WorldActors">
+      <UniqueIdentifier>{189eae0e-4d8d-4633-855a-3f38ab37080c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Components\Renderers">
+      <UniqueIdentifier>{d0a08ba3-2999-4c17-a058-0b6df888ab25}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Components\Movements">
+      <UniqueIdentifier>{4580cda2-d53e-4582-a6d3-ebf06f6e8ad6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Components\Lights">
+      <UniqueIdentifier>{8e48f9e6-25f0-420c-bd2b-3848ae1325c5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Components\Camera">
+      <UniqueIdentifier>{7efed113-c75d-41d9-8f1e-85f6b65145f9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Components\Models">
+      <UniqueIdentifier>{ca969335-f2bb-4fee-a674-62f97af7d195}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Actors\ModelActors">
+      <UniqueIdentifier>{6a7b79c2-dc1a-41cc-b6ea-244344cd1b8c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Mechanics\Animation">
+      <UniqueIdentifier>{dd70af05-d408-4ca6-9651-9b1ba87beda5}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp">
+      <Filter>소스 파일\Headers</Filter>
+    </ClCompile>
+    <ClCompile Include="Actor.cpp">
+      <Filter>소스 파일\Actors</Filter>
+    </ClCompile>
+    <ClCompile Include="Pawn.cpp">
+      <Filter>소스 파일\Actors</Filter>
+    </ClCompile>
+    <ClCompile Include="RootComponent.cpp">
+      <Filter>소스 파일\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="MovementComponent.cpp">
+      <Filter>소스 파일\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="World.cpp">
+      <Filter>소스 파일\World</Filter>
+    </ClCompile>
+    <ClCompile Include="WorldManager.cpp">
+      <Filter>소스 파일\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="AnimController.cpp">
+      <Filter>소스 파일\Mechanics\Animation</Filter>
+    </ClCompile>
+    <ClCompile Include="AnimState.cpp">
+      <Filter>소스 파일\Mechanics\Animation</Filter>
+    </ClCompile>
+    <ClCompile Include="Frustum.cpp">
+      <Filter>소스 파일\Mechanics\Camera</Filter>
+    </ClCompile>
+    <ClCompile Include="DirectionalLightActor.cpp">
+      <Filter>소스 파일\Actors\LightActors</Filter>
+    </ClCompile>
+    <ClCompile Include="PointLightActor.cpp">
+      <Filter>소스 파일\Actors\LightActors</Filter>
+    </ClCompile>
+    <ClCompile Include="SpotLightActor.cpp">
+      <Filter>소스 파일\Actors\LightActors</Filter>
+    </ClCompile>
+    <ClCompile Include="PrimitiveActor.cpp">
+      <Filter>소스 파일\Actors\WorldActors</Filter>
+    </ClCompile>
+    <ClCompile Include="CameraActor.cpp">
+      <Filter>소스 파일\Actors\WorldActors</Filter>
+    </ClCompile>
+    <ClCompile Include="PrimitiveRenderer.cpp">
+      <Filter>소스 파일\Components\Renderers</Filter>
+    </ClCompile>
+    <ClCompile Include="SphereRenderer.cpp">
+      <Filter>소스 파일\Components\Renderers</Filter>
+    </ClCompile>
+    <ClCompile Include="BoxRenderer.cpp">
+      <Filter>소스 파일\Components\Renderers</Filter>
+    </ClCompile>
+    <ClCompile Include="CharacterMovement.cpp">
+      <Filter>소스 파일\Components\Movements</Filter>
+    </ClCompile>
+    <ClCompile Include="FloatingMovement.cpp">
+      <Filter>소스 파일\Components\Movements</Filter>
+    </ClCompile>
+    <ClCompile Include="DirectionalLight.cpp">
+      <Filter>소스 파일\Components\Lights</Filter>
+    </ClCompile>
+    <ClCompile Include="SpotLight.cpp">
+      <Filter>소스 파일\Components\Lights</Filter>
+    </ClCompile>
+    <ClCompile Include="PointLight.cpp">
+      <Filter>소스 파일\Components\Lights</Filter>
+    </ClCompile>
+    <ClCompile Include="SceneComponent.cpp">
+      <Filter>소스 파일\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="LightActor.cpp">
+      <Filter>소스 파일\Actors\LightActors</Filter>
+    </ClCompile>
+    <ClCompile Include="CameraComponent.cpp">
+      <Filter>소스 파일\Components\Camera</Filter>
+    </ClCompile>
+    <ClCompile Include="LightComponent.cpp">
+      <Filter>소스 파일\Components\Lights</Filter>
+    </ClCompile>
+    <ClCompile Include="ModelRenderer.cpp">
+      <Filter>소스 파일\Components\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="ModelActor.cpp">
+      <Filter>소스 파일\Actors\ModelActors</Filter>
+    </ClCompile>
+    <ClCompile Include="StaticModelActor.cpp">
+      <Filter>소스 파일\Actors\ModelActors</Filter>
+    </ClCompile>
+    <ClCompile Include="SkinnedModelActor.cpp">
+      <Filter>소스 파일\Actors\ModelActors</Filter>
+    </ClCompile>
+    <ClCompile Include="StaticModelRenderer.cpp">
+      <Filter>소스 파일\Components\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="AnimComponent.cpp">
+      <Filter>소스 파일\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="App.cpp">
+      <Filter>소스 파일\App</Filter>
+    </ClCompile>
+    <ClCompile Include="SkinnedModelRenderer.cpp">
+      <Filter>소스 파일\Components\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="Ray.cpp">
+      <Filter>소스 파일\Mechanics\Camera</Filter>
+    </ClCompile>
+    <ClCompile Include="RaycastHit.cpp">
+      <Filter>소스 파일\Mechanics\Camera</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h">
+      <Filter>소스 파일\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Runtime.h">
+      <Filter>소스 파일\Main</Filter>
+    </ClInclude>
+    <ClInclude Include="Actor.h">
+      <Filter>소스 파일\Actors</Filter>
+    </ClInclude>
+    <ClInclude Include="Pawn.h">
+      <Filter>소스 파일\Actors</Filter>
+    </ClInclude>
+    <ClInclude Include="RootComponent.h">
+      <Filter>소스 파일\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="MovementComponent.h">
+      <Filter>소스 파일\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="World.h">
+      <Filter>소스 파일\World</Filter>
+    </ClInclude>
+    <ClInclude Include="WorldManager.h">
+      <Filter>소스 파일\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="AnimController.h">
+      <Filter>소스 파일\Mechanics\Animation</Filter>
+    </ClInclude>
+    <ClInclude Include="AnimState.h">
+      <Filter>소스 파일\Mechanics\Animation</Filter>
+    </ClInclude>
+    <ClInclude Include="Frustum.h">
+      <Filter>소스 파일\Mechanics\Camera</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectionalLightActor.h">
+      <Filter>소스 파일\Actors\LightActors</Filter>
+    </ClInclude>
+    <ClInclude Include="PointLightActor.h">
+      <Filter>소스 파일\Actors\LightActors</Filter>
+    </ClInclude>
+    <ClInclude Include="SpotLightActor.h">
+      <Filter>소스 파일\Actors\LightActors</Filter>
+    </ClInclude>
+    <ClInclude Include="PrimitiveActor.h">
+      <Filter>소스 파일\Actors\WorldActors</Filter>
+    </ClInclude>
+    <ClInclude Include="CameraActor.h">
+      <Filter>소스 파일\Actors\WorldActors</Filter>
+    </ClInclude>
+    <ClInclude Include="PrimitiveRenderer.h">
+      <Filter>소스 파일\Components\Renderers</Filter>
+    </ClInclude>
+    <ClInclude Include="SphereRenderer.h">
+      <Filter>소스 파일\Components\Renderers</Filter>
+    </ClInclude>
+    <ClInclude Include="BoxRenderer.h">
+      <Filter>소스 파일\Components\Renderers</Filter>
+    </ClInclude>
+    <ClInclude Include="CharacterMovement.h">
+      <Filter>소스 파일\Components\Movements</Filter>
+    </ClInclude>
+    <ClInclude Include="FloatingMovement.h">
+      <Filter>소스 파일\Components\Movements</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectionalLight.h">
+      <Filter>소스 파일\Components\Lights</Filter>
+    </ClInclude>
+    <ClInclude Include="SpotLight.h">
+      <Filter>소스 파일\Components\Lights</Filter>
+    </ClInclude>
+    <ClInclude Include="PointLight.h">
+      <Filter>소스 파일\Components\Lights</Filter>
+    </ClInclude>
+    <ClInclude Include="SceneComponent.h">
+      <Filter>소스 파일\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="LightActor.h">
+      <Filter>소스 파일\Actors\LightActors</Filter>
+    </ClInclude>
+    <ClInclude Include="CameraComponent.h">
+      <Filter>소스 파일\Components\Camera</Filter>
+    </ClInclude>
+    <ClInclude Include="LightComponent.h">
+      <Filter>소스 파일\Components\Lights</Filter>
+    </ClInclude>
+    <ClInclude Include="Enums.h">
+      <Filter>소스 파일\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="ModelRenderer.h">
+      <Filter>소스 파일\Components\Models</Filter>
+    </ClInclude>
+    <ClInclude Include="ModelActor.h">
+      <Filter>소스 파일\Actors\ModelActors</Filter>
+    </ClInclude>
+    <ClInclude Include="StaticModelActor.h">
+      <Filter>소스 파일\Actors\ModelActors</Filter>
+    </ClInclude>
+    <ClInclude Include="SkinnedModelActor.h">
+      <Filter>소스 파일\Actors\ModelActors</Filter>
+    </ClInclude>
+    <ClInclude Include="StaticModelRenderer.h">
+      <Filter>소스 파일\Components\Models</Filter>
+    </ClInclude>
+    <ClInclude Include="AnimComponent.h">
+      <Filter>소스 파일\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="World.inl">
+      <Filter>소스 파일\World</Filter>
+    </ClInclude>
+    <ClInclude Include="App.h">
+      <Filter>소스 파일\App</Filter>
+    </ClInclude>
+    <ClInclude Include="SkinnedModelRenderer.h">
+      <Filter>소스 파일\Components\Models</Filter>
+    </ClInclude>
+    <ClInclude Include="Ray.h">
+      <Filter>소스 파일\Mechanics\Camera</Filter>
+    </ClInclude>
+    <ClInclude Include="RaycastHit.h">
+      <Filter>소스 파일\Mechanics\Camera</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

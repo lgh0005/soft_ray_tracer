@@ -1,0 +1,16 @@
+# 빌드 출력 및 중간 생성물
+/Binaries/
+/Build/
+/Intermediate/
+
+# 별도 다운로드로 제공하는 에셋 및 외부 의존성
+/Assets/
+/ThirdParty/
+
+# Visual Studio 개인 설정 및 캐시
+/.vs/
+*.vcxproj.user
+*.suo
+*.sln.docstates
+*.VC.db
+*.VC.VC.opendb

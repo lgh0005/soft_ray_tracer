@@ -1,0 +1,176 @@
+#include "pch.h"
+#include "App.h"
+#include "Runtime.h"
+
+namespace bdt
+{
+	bool App::Init()
+	{
+		// 0. [디버그] 로거 초기화
+		BDT_LOG_INIT();
+
+		// 1. Window 및 OpenGL Context 생성
+		if (!BDT_WINDOW.Init())
+			return false;
+
+		// 2. Time
+		BDT_TIME.Init();
+
+		// 3. Input
+		if (!BDT_INPUT.Init(BDT_WINDOW.GetNativeWindow()))
+			return false;
+
+		// 4. TaskManager
+		const GLMainContext* mainContext = BDT_WINDOW.GetMainContext();
+		if (!mainContext) return false;
+
+		// 워커 스레드 생성 및 시작
+		uint32 affinity = std::thread::hardware_concurrency();
+		if (affinity == 0) affinity = 1;
+		if (!BDT_TASK.Init(*mainContext, affinity)) return false;
+		if (!BDT_TASK.Launch()) return false;
+
+		// 5. ResourceManager
+		// 별도의 Init()이 없으므로 초기화하지 않음
+
+		// 6. RenderManager
+		if (!BDT_RENDER.Init())
+			return false;
+
+		// 7. WorldManager
+		// 별도의 Init()이 없으므로 초기화하지 않음
+
+		// 8. GUIManager
+		TODO: BDT_GUI.Init();
+
+		m_appInitialized = true;
+		return true;
+	}
+
+	void App::Update()
+	{
+		if (!m_appInitialized) 
+			return;
+
+		while (!BDT_WINDOW.ShouldClose())
+		{
+			// 1. Event Polling
+			BDT_WINDOW.PollEvents();
+
+			// 2. Time
+			BDT_TIME.Update();
+
+			// 3. Input
+			BDT_INPUT.Update();
+
+			// 4. World
+			BDT_WORLD.Update(BDT_TIME.GetDeltaTime());
+			BDT_WORLD.Submit();
+
+			// 5. Rendering
+			Render();
+
+			// 6. Swap Buffers
+			BDT_WINDOW.Update();
+		}
+	}
+
+	void App::Render()
+	{
+		// 1. Framebuffer Resize
+		const uint32 width = BDT_WINDOW.GetFramebufferWidth();
+		const uint32 height = BDT_WINDOW.GetFramebufferHeight();
+		if (width <= 0 || height <= 0)
+			return;
+
+		// 2. World 카메라의 Viewport 갱신
+		BDT_WORLD.Resize(width, height);
+		BDT_WORLD.Submit();
+
+		// 3. Framebuffer 크기가 변경되었다면 렌더 타깃 갱신
+		if (BDT_WINDOW.IsFramebufferResized() && BDT_RENDER.GetCurrentPipeline())
+		{
+			if (!BDT_RENDER.Resize(width, height)) return;
+			BDT_WINDOW.ClearFramebufferResizeFlag();
+		}
+
+		// 4. Rendering
+		BDT_RENDER.Render(BDT_WORLD.GetRenderScene(), width, height);
+
+		// 5. GUI Rendering
+		BDT_GUI.Render();
+	}
+
+	void App::Clear()
+	{
+		// 1. TaskManager
+		BDT_TASK.Shutdown();
+
+		// 2. GUIManager
+		BDT_GUI.Shutdown();
+
+		// 3. WorldManager
+		BDT_WORLD.Shutdown();
+
+		// 4. RenderManager
+		BDT_RENDER.Shutdown();
+
+		// 5. ResourceManager
+		BDT_RESOURCE.Clear();
+
+		// 6. InputManager
+		BDT_INPUT.Shutdown();
+
+		// 7. TimeManager
+		BDT_TIME.Shutdown();
+
+		// 8. WindowManager
+		BDT_WINDOW.Shutdown();
+
+		// 씬 틱 확인용 디버그 로거 정리.
+		BDT_LOG_CLEAR();
+	}
+
+	bool App::RegisterLevel(WorldUPtr world, IRenderPipelineUPtr pipeline)
+	{
+		if (!m_appInitialized)
+			return false;
+
+		if (!world || !pipeline)
+			return false;
+
+		// 각각의 Tag 확인
+		const String worldTag = world->GetTag();
+		const String pipelineTag = pipeline->GetTag();
+
+		// 중복 등록 방지
+		if (BDT_WORLD.GetWorld(worldTag)) return false;
+		if (BDT_RENDER.GetPipeline(pipelineTag)) return false;
+
+		// 각 Manager에 소유권 이전
+		BDT_WORLD.RegisterWorld(std::move(world));
+		BDT_RENDER.RegisterPipeline(std::move(pipeline));
+
+		return true;
+	}
+
+	void App::ChangeLevel
+	(
+		const String& worldTag,
+		const String& pipelineTag
+	)
+	{
+		if (!m_appInitialized)
+			return;
+
+		// 변경하려는 World와 Pipeline 확인
+		World* world = BDT_WORLD.GetWorld(worldTag);
+		IRenderPipeline* pipeline = BDT_RENDER.GetPipeline(pipelineTag);
+		if (!world || !pipeline)
+			return;
+
+		// 두 Manager에 전환 예약
+		BDT_WORLD.ChangeWorld(worldTag);
+		BDT_RENDER.ChangePipeline(pipelineTag);
+	}
+}

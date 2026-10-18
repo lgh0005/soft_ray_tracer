@@ -1,0 +1,70 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="소스 파일">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="소스 파일\Headers">
+      <UniqueIdentifier>{9dfd53c9-6fbc-40b9-a212-21d060dc44b5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Main">
+      <UniqueIdentifier>{46b1a780-075e-4271-8ff9-684574367547}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\MySimplePipeline">
+      <UniqueIdentifier>{d7c4d2e0-226d-4b61-9f25-0c149550026d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\MySimplePipeline\RenderBus">
+      <UniqueIdentifier>{19cf39b9-8c43-4966-8c13-5cd7d89fd5e1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\MySimplePipeline\RenderPasses">
+      <UniqueIdentifier>{e6385eed-f103-4284-8668-913e746a17f7}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp">
+      <Filter>소스 파일\Headers</Filter>
+    </ClCompile>
+    <ClCompile Include="MySimplePipeline.cpp">
+      <Filter>소스 파일\MySimplePipeline</Filter>
+    </ClCompile>
+    <ClCompile Include="MySimpleBus.cpp">
+      <Filter>소스 파일\MySimplePipeline\RenderBus</Filter>
+    </ClCompile>
+    <ClCompile Include="MySimpleOutputPass.cpp">
+      <Filter>소스 파일\MySimplePipeline\RenderPasses</Filter>
+    </ClCompile>
+    <ClCompile Include="MySimpleGeometryPass.cpp">
+      <Filter>소스 파일\MySimplePipeline\RenderPasses</Filter>
+    </ClCompile>
+    <ClCompile Include="MyGBuffer.cpp">
+      <Filter>소스 파일\MySimplePipeline\RenderBus</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h">
+      <Filter>소스 파일\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="MySimplePipeline.h">
+      <Filter>소스 파일\MySimplePipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="MySimpleBus.h">
+      <Filter>소스 파일\MySimplePipeline\RenderBus</Filter>
+    </ClInclude>
+    <ClInclude Include="MySimpleOutputPass.h">
+      <Filter>소스 파일\MySimplePipeline\RenderPasses</Filter>
+    </ClInclude>
+    <ClInclude Include="MySimpleGeometryPass.h">
+      <Filter>소스 파일\MySimplePipeline\RenderPasses</Filter>
+    </ClInclude>
+    <ClInclude Include="Enums.h">
+      <Filter>소스 파일\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="MyGBuffer.h">
+      <Filter>소스 파일\MySimplePipeline\RenderBus</Filter>
+    </ClInclude>
+    <ClInclude Include="Pipelines.h">
+      <Filter>소스 파일\Main</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

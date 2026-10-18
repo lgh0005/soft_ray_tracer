@@ -1,0 +1,271 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="소스 파일">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="소스 파일\Headers">
+      <UniqueIdentifier>{f4d72cae-e4fe-478c-ad04-db35cb02ac04}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Debug">
+      <UniqueIdentifier>{96f92d39-ffd1-4b15-93cc-852c42b0616b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Window">
+      <UniqueIdentifier>{7b6633b2-b477-4569-89ac-d8f1cde72ed1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Managers">
+      <UniqueIdentifier>{8c310625-e53e-417a-89cb-cc2a00f36c53}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Main">
+      <UniqueIdentifier>{72460f23-1904-47d3-94d1-46b9da158407}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\OpenGL">
+      <UniqueIdentifier>{9543458f-de33-4b2b-83cc-73f291bd81c9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\OpenGL\Programs">
+      <UniqueIdentifier>{411a4d1a-cf26-4f26-a56e-992722397ec4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\OpenGL\Objects">
+      <UniqueIdentifier>{d7e28dc1-2ac9-4037-ab68-80436eaa5168}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\OpenGL\Framebuffers">
+      <UniqueIdentifier>{7d7489b5-cc9d-4329-8225-d7510f35af1e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\OpenGL\Textures">
+      <UniqueIdentifier>{2b83e822-eb4c-46d0-a7be-626b7bc07827}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\OpenGL\Geometry">
+      <UniqueIdentifier>{15accfdd-53fa-4c6a-bd73-c2c6ee5a1333}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\OpenGL\Objects\Meshes">
+      <UniqueIdentifier>{85c89f69-eba8-478a-b3e1-18f1dc6bfaf8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\OpenGL\Objects\Buffers">
+      <UniqueIdentifier>{750eeefb-b77f-472f-a653-16827903efd0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Devices">
+      <UniqueIdentifier>{0df57016-c65f-4c1f-96a9-ba02187089e3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Worker">
+      <UniqueIdentifier>{703e404c-f417-4b60-b056-5171432155db}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp">
+      <Filter>소스 파일\Headers</Filter>
+    </ClCompile>
+    <ClCompile Include="Logger.cpp">
+      <Filter>소스 파일\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="Asserter.cpp">
+      <Filter>소스 파일\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="Profiler.cpp">
+      <Filter>소스 파일\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="InputManager.cpp">
+      <Filter>소스 파일\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="WindowManager.cpp">
+      <Filter>소스 파일\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="GLWindow.cpp">
+      <Filter>소스 파일\Window</Filter>
+    </ClCompile>
+    <ClCompile Include="GLComputeProgram.cpp">
+      <Filter>소스 파일\OpenGL\Programs</Filter>
+    </ClCompile>
+    <ClCompile Include="GLGraphicsProgram.cpp">
+      <Filter>소스 파일\OpenGL\Programs</Filter>
+    </ClCompile>
+    <ClCompile Include="GLSampler.cpp">
+      <Filter>소스 파일\OpenGL\Textures</Filter>
+    </ClCompile>
+    <ClCompile Include="GLFramebuffer2D.cpp">
+      <Filter>소스 파일\OpenGL\Framebuffers</Filter>
+    </ClCompile>
+    <ClCompile Include="GLFramebufferCube.cpp">
+      <Filter>소스 파일\OpenGL\Framebuffers</Filter>
+    </ClCompile>
+    <ClCompile Include="TimeManager.cpp">
+      <Filter>소스 파일\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="GLSimpleMesh.cpp">
+      <Filter>소스 파일\OpenGL\Objects\Meshes</Filter>
+    </ClCompile>
+    <ClCompile Include="GLBuffer.cpp">
+      <Filter>소스 파일\OpenGL\Objects\Buffers</Filter>
+    </ClCompile>
+    <ClCompile Include="GLVertexArray.cpp">
+      <Filter>소스 파일\OpenGL\Objects\Buffers</Filter>
+    </ClCompile>
+    <ClCompile Include="GLScreenMesh.cpp">
+      <Filter>소스 파일\OpenGL\Objects\Meshes</Filter>
+    </ClCompile>
+    <ClCompile Include="GLStaticMesh.cpp">
+      <Filter>소스 파일\OpenGL\Objects\Meshes</Filter>
+    </ClCompile>
+    <ClCompile Include="GLSkinnedMesh.cpp">
+      <Filter>소스 파일\OpenGL\Objects\Meshes</Filter>
+    </ClCompile>
+    <ClCompile Include="GLProgramBuilder.cpp">
+      <Filter>소스 파일\OpenGL\Programs</Filter>
+    </ClCompile>
+    <ClCompile Include="GLTexture2D.cpp">
+      <Filter>소스 파일\OpenGL\Textures</Filter>
+    </ClCompile>
+    <ClCompile Include="GLTextureCube.cpp">
+      <Filter>소스 파일\OpenGL\Textures</Filter>
+    </ClCompile>
+    <ClCompile Include="GLContext.cpp">
+      <Filter>소스 파일\Window</Filter>
+    </ClCompile>
+    <ClCompile Include="GLMainContext.cpp">
+      <Filter>소스 파일\Window</Filter>
+    </ClCompile>
+    <ClCompile Include="Keyboard.cpp">
+      <Filter>소스 파일\Devices</Filter>
+    </ClCompile>
+    <ClCompile Include="Mouse.cpp">
+      <Filter>소스 파일\Devices</Filter>
+    </ClCompile>
+    <ClCompile Include="TaskManager.cpp">
+      <Filter>소스 파일\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="IInputDevice.cpp">
+      <Filter>소스 파일\Devices</Filter>
+    </ClCompile>
+    <ClCompile Include="GLMesh.cpp">
+      <Filter>소스 파일\OpenGL\Objects\Meshes</Filter>
+    </ClCompile>
+    <ClCompile Include="GLSubContext.cpp">
+      <Filter>소스 파일\Worker</Filter>
+    </ClCompile>
+    <ClCompile Include="Worker.cpp">
+      <Filter>소스 파일\Worker</Filter>
+    </ClCompile>
+    <ClCompile Include="TaskBatch.cpp">
+      <Filter>소스 파일\Worker</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h">
+      <Filter>소스 파일\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Types.h">
+      <Filter>소스 파일\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Defines.h">
+      <Filter>소스 파일\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Core.h">
+      <Filter>소스 파일\Main</Filter>
+    </ClInclude>
+    <ClInclude Include="Logger.h">
+      <Filter>소스 파일\Debug</Filter>
+    </ClInclude>
+    <ClInclude Include="Asserter.h">
+      <Filter>소스 파일\Debug</Filter>
+    </ClInclude>
+    <ClInclude Include="Profiler.h">
+      <Filter>소스 파일\Debug</Filter>
+    </ClInclude>
+    <ClInclude Include="InputManager.h">
+      <Filter>소스 파일\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="WindowManager.h">
+      <Filter>소스 파일\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="GLWindow.h">
+      <Filter>소스 파일\Window</Filter>
+    </ClInclude>
+    <ClInclude Include="GLComputeProgram.h">
+      <Filter>소스 파일\OpenGL\Programs</Filter>
+    </ClInclude>
+    <ClInclude Include="GLGraphicsProgram.h">
+      <Filter>소스 파일\OpenGL\Programs</Filter>
+    </ClInclude>
+    <ClInclude Include="GLSampler.h">
+      <Filter>소스 파일\OpenGL\Textures</Filter>
+    </ClInclude>
+    <ClInclude Include="GLFramebuffer2D.h">
+      <Filter>소스 파일\OpenGL\Framebuffers</Filter>
+    </ClInclude>
+    <ClInclude Include="GLFramebufferCube.h">
+      <Filter>소스 파일\OpenGL\Framebuffers</Filter>
+    </ClInclude>
+    <ClInclude Include="TimeManager.h">
+      <Filter>소스 파일\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="GLVertices.h">
+      <Filter>소스 파일\OpenGL\Geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="GLSimpleMesh.h">
+      <Filter>소스 파일\OpenGL\Objects\Meshes</Filter>
+    </ClInclude>
+    <ClInclude Include="GLBuffer.h">
+      <Filter>소스 파일\OpenGL\Objects\Buffers</Filter>
+    </ClInclude>
+    <ClInclude Include="GLVertexArray.h">
+      <Filter>소스 파일\OpenGL\Objects\Buffers</Filter>
+    </ClInclude>
+    <ClInclude Include="GLScreenMesh.h">
+      <Filter>소스 파일\OpenGL\Objects\Meshes</Filter>
+    </ClInclude>
+    <ClInclude Include="GLStaticMesh.h">
+      <Filter>소스 파일\OpenGL\Objects\Meshes</Filter>
+    </ClInclude>
+    <ClInclude Include="GLSkinnedMesh.h">
+      <Filter>소스 파일\OpenGL\Objects\Meshes</Filter>
+    </ClInclude>
+    <ClInclude Include="GLProgramBuilder.h">
+      <Filter>소스 파일\OpenGL\Programs</Filter>
+    </ClInclude>
+    <ClInclude Include="GLTexture2D.h">
+      <Filter>소스 파일\OpenGL\Textures</Filter>
+    </ClInclude>
+    <ClInclude Include="GLTextureCube.h">
+      <Filter>소스 파일\OpenGL\Textures</Filter>
+    </ClInclude>
+    <ClInclude Include="GLContext.h">
+      <Filter>소스 파일\Window</Filter>
+    </ClInclude>
+    <ClInclude Include="GLMainContext.h">
+      <Filter>소스 파일\Window</Filter>
+    </ClInclude>
+    <ClInclude Include="IInputDevice.h">
+      <Filter>소스 파일\Devices</Filter>
+    </ClInclude>
+    <ClInclude Include="Keyboard.h">
+      <Filter>소스 파일\Devices</Filter>
+    </ClInclude>
+    <ClInclude Include="Mouse.h">
+      <Filter>소스 파일\Devices</Filter>
+    </ClInclude>
+    <ClInclude Include="Logger.inl">
+      <Filter>소스 파일\Debug</Filter>
+    </ClInclude>
+    <ClInclude Include="TaskManager.h">
+      <Filter>소스 파일\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="Enums.h">
+      <Filter>소스 파일\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderFile.h">
+      <Filter>소스 파일\OpenGL\Programs</Filter>
+    </ClInclude>
+    <ClInclude Include="GLMesh.h">
+      <Filter>소스 파일\OpenGL\Objects\Meshes</Filter>
+    </ClInclude>
+    <ClInclude Include="GLSubContext.h">
+      <Filter>소스 파일\Worker</Filter>
+    </ClInclude>
+    <ClInclude Include="Worker.h">
+      <Filter>소스 파일\Worker</Filter>
+    </ClInclude>
+    <ClInclude Include="TaskBatch.h">
+      <Filter>소스 파일\Worker</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,178 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="소스 파일">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="소스 파일\Headers">
+      <UniqueIdentifier>{04bb13bb-8727-443d-9de9-e3d79122e647}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Main">
+      <UniqueIdentifier>{2f64cb8b-2d41-4298-bf2e-277a2903df96}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Managers">
+      <UniqueIdentifier>{c6e2aa49-b634-4d8a-9002-36ce2ef33734}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Instancing">
+      <UniqueIdentifier>{692442ae-c6e1-494b-a8f0-03585fb9df12}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Interfaces">
+      <UniqueIdentifier>{718c408a-e307-4bcc-9de9-f9e0b62f90c0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Viewport">
+      <UniqueIdentifier>{551fc42b-a7ec-4bdf-851b-bb7e63c574a0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Instancing\RenderBatches">
+      <UniqueIdentifier>{0ab9a733-0749-4229-be96-a09d4fde7ab2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Instancing\RenderQueues">
+      <UniqueIdentifier>{3424bebe-37ca-4dba-8975-efa6fb81d775}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Targets">
+      <UniqueIdentifier>{e48f4e0b-7db7-4fc4-9d92-f2a17d80164d}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp">
+      <Filter>소스 파일\Headers</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderManager.cpp">
+      <Filter>소스 파일\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderViewport.cpp">
+      <Filter>소스 파일\Viewport</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderScene.cpp">
+      <Filter>소스 파일\Instancing</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderObject.cpp">
+      <Filter>소스 파일\Instancing</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderBatch.cpp">
+      <Filter>소스 파일\Instancing\RenderBatches</Filter>
+    </ClCompile>
+    <ClCompile Include="SkinnedRenderBatch.cpp">
+      <Filter>소스 파일\Instancing\RenderBatches</Filter>
+    </ClCompile>
+    <ClCompile Include="StaticRenderBatch.cpp">
+      <Filter>소스 파일\Instancing\RenderBatches</Filter>
+    </ClCompile>
+    <ClCompile Include="StaticRenderQueue.cpp">
+      <Filter>소스 파일\Instancing\RenderQueues</Filter>
+    </ClCompile>
+    <ClCompile Include="SkinnedRenderQueue.cpp">
+      <Filter>소스 파일\Instancing\RenderQueues</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderMaterial.cpp">
+      <Filter>소스 파일\Instancing</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderTexture2D.cpp">
+      <Filter>소스 파일\Targets</Filter>
+    </ClCompile>
+    <ClCompile Include="Framebuffer2D.cpp">
+      <Filter>소스 파일\Targets</Filter>
+    </ClCompile>
+    <ClCompile Include="FramebufferCube.cpp">
+      <Filter>소스 파일\Targets</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderTextureCube.cpp">
+      <Filter>소스 파일\Targets</Filter>
+    </ClCompile>
+    <ClCompile Include="IRenderBus.cpp">
+      <Filter>소스 파일\Interfaces</Filter>
+    </ClCompile>
+    <ClCompile Include="IRenderPass.cpp">
+      <Filter>소스 파일\Interfaces</Filter>
+    </ClCompile>
+    <ClCompile Include="IRenderPipeline.cpp">
+      <Filter>소스 파일\Interfaces</Filter>
+    </ClCompile>
+    <ClCompile Include="IRenderTarget.cpp">
+      <Filter>소스 파일\Interfaces</Filter>
+    </ClCompile>
+    <ClCompile Include="InstanceBuffer.cpp">
+      <Filter>소스 파일\Instancing</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderScreen.cpp">
+      <Filter>소스 파일\Targets</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Uniforms.h">
+      <Filter>소스 파일\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="pch.h">
+      <Filter>소스 파일\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering.h">
+      <Filter>소스 파일\Main</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderManager.h">
+      <Filter>소스 파일\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderViewport.h">
+      <Filter>소스 파일\Viewport</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderScene.h">
+      <Filter>소스 파일\Instancing</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderObject.h">
+      <Filter>소스 파일\Instancing</Filter>
+    </ClInclude>
+    <ClInclude Include="Instances.h">
+      <Filter>소스 파일\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderBatch.h">
+      <Filter>소스 파일\Instancing\RenderBatches</Filter>
+    </ClInclude>
+    <ClInclude Include="SkinnedRenderBatch.h">
+      <Filter>소스 파일\Instancing\RenderBatches</Filter>
+    </ClInclude>
+    <ClInclude Include="StaticRenderBatch.h">
+      <Filter>소스 파일\Instancing\RenderBatches</Filter>
+    </ClInclude>
+    <ClInclude Include="StaticRenderQueue.h">
+      <Filter>소스 파일\Instancing\RenderQueues</Filter>
+    </ClInclude>
+    <ClInclude Include="SkinnedRenderQueue.h">
+      <Filter>소스 파일\Instancing\RenderQueues</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderMaterial.h">
+      <Filter>소스 파일\Instancing</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderTexture2D.h">
+      <Filter>소스 파일\Targets</Filter>
+    </ClInclude>
+    <ClInclude Include="Framebuffer2D.h">
+      <Filter>소스 파일\Targets</Filter>
+    </ClInclude>
+    <ClInclude Include="FramebufferCube.h">
+      <Filter>소스 파일\Targets</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderTextureCube.h">
+      <Filter>소스 파일\Targets</Filter>
+    </ClInclude>
+    <ClInclude Include="IRenderBus.h">
+      <Filter>소스 파일\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="IRenderPass.h">
+      <Filter>소스 파일\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="IRenderPipeline.h">
+      <Filter>소스 파일\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="IRenderTarget.h">
+      <Filter>소스 파일\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="InstanceBuffer.h">
+      <Filter>소스 파일\Instancing</Filter>
+    </ClInclude>
+    <ClInclude Include="Enums.h">
+      <Filter>소스 파일\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderScreen.h">
+      <Filter>소스 파일\Targets</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

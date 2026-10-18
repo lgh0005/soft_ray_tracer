@@ -1,0 +1,13 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="Core/Core.vcxproj" Id="a36bb338-4ad9-459b-bbb8-3e527ae99e7b" />
+  <Project Path="Editor/Editor.vcxproj" Id="08a252a7-7fcf-4d1a-b75a-4a1342c662c0" />
+  <Project Path="Pipelines/Pipelines.vcxproj" Id="85ef41df-4939-436b-88ef-ce8515697733" />
+  <Project Path="Rendering/Rendering.vcxproj" Id="c50cba75-5da0-4195-aec6-ab5993afab9f" />
+  <Project Path="Resources/Resources.vcxproj" Id="c4b46a4a-05ab-4e57-a6d3-cce58c53fa87" />
+  <Project Path="Runtime/Runtime.vcxproj" Id="b7cae477-419b-4779-8d47-1886ce240f28" />
+  <Project Path="soft_ray_tracer/soft_ray_tracer.vcxproj" Id="8c50c969-ad06-4c11-900e-4c746318f532" />
+</Solution>
