@@ -21,7 +21,7 @@ namespace bdt
     bool RenderScreen::Resize(uint32 width, uint32 height)
     {
         if (width == 0 || height == 0) return false;
-        if (m_width == width || m_height == height) return true;
+        if (m_width == width && m_height == height) return true;
         m_width = width;
         m_height = height;
         return true;

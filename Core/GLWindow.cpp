@@ -139,7 +139,6 @@ namespace bdt
     {
         GLWindow* self = GetGLFWWindow(window);
         if (!self) return;
-
         self->RequestClose(true);
     }
 
@@ -166,7 +165,6 @@ namespace bdt
     {
         GLWindow* self = GetGLFWWindow(window);
         if (!self) return;
-
         self->m_isIconified = (iconified == GLFW_TRUE);
     }
 
