@@ -31,10 +31,5 @@ namespace bdt
 		ResourceHandle<GraphicsShader> m_geometryShaderSkinned;
 		StaticRenderQueueUPtr m_staticQueue{ nullptr };
 		SkinnedRenderQueueUPtr m_skinnedQueue{ nullptr };
-
-	// DEBUG : 비동기 로드 확인
-	private:
-		bool m_staticShaderReadyLogged{ false };
-		bool m_skinnedShaderReadyLogged{ false };
 	};
 }

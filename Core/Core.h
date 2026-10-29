@@ -24,3 +24,5 @@
 #include "Asserter.h"
 #include "Logger.h"
 #include "Profiler.h"
+#include "GLFWSnapshot.h"
+#include "GLGPUTimer.h"

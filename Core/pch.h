@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+// Windows
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -10,6 +11,7 @@
 
 #include <Windows.h>
 
+// C++
 #include <string>
 #include <string_view>
 #include <vector>
@@ -22,8 +24,6 @@
 #include <unordered_set>
 #include <queue>
 #include <stack>
-#include <fstream>
-#include <sstream>
 #include <functional>
 #include <optional>
 #include <type_traits>
@@ -32,6 +32,7 @@
 #include <thread>
 #include <mutex>
 
+// OpenGL
 #ifndef GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_NONE
 #endif
@@ -45,6 +46,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+// KTX
 #ifndef KHRONOS_STATIC
 #define KHRONOS_STATIC
 #endif

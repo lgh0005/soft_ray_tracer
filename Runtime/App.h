@@ -33,6 +33,12 @@ namespace bdt
 			const String& pipelineTag
 		);
 
+	/*==================================//
+	//    Mesurement Debug Utilities    //
+	//==================================*/
+	private:
+		void HandleDebugSnapshot();
+
 	private:
 		bool m_appInitialized { false };
 	};

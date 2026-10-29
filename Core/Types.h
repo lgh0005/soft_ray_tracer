@@ -32,6 +32,12 @@
 #include <ratio>
 #include <source_location>
 #include <future>
+#include <filesystem>
+#include <ios>
+#include <istream>
+#include <ostream>
+#include <fstream>
+#include <sstream>
 
 // 수학 라이브러리 의존성
 // GLM에서 제공하는 벡터, 행렬 및 사원수 타입을 사용하기 위한 헤더를 포함합니다.
@@ -93,6 +99,8 @@ namespace bdt
 	using cstr = const char*;
 	using String = std::string;
 	using StringView = std::string_view;
+	using ByteString = std::u8string;
+	using ByteStringView = std::u8string_view;
 
 	// 객체 수명 관리 타입 별칭
 	// shared_ptr로 관리되는 객체가 자기 자신을 공유 소유할 수 있도록 지원합니다.
@@ -151,4 +159,31 @@ namespace bdt
 	// 자료형에서 표현 가능한 최솟값과 최댓값을 컴파일 타임 상수로 정의합니다.
 	template<typename T> inline constexpr T MinValue = std::numeric_limits<T>::lowest();
 	template<typename T> inline constexpr T MaxValue = std::numeric_limits<T>::max();
+
+	// 파일 시스템 
+	// [설명]
+	namespace fs = std::filesystem;
+	using Path = fs::path;
+	using FileStatus = fs::file_status;
+	using FileType = fs::file_type;
+	using DirectoryEntry = fs::directory_entry;
+	using DirectoryIterator = fs::directory_iterator;
+	using RecursiveDirectoryIterator = fs::recursive_directory_iterator;
+
+	// 스트림 및 파일 입출력
+	using InputStream = std::istream;
+	using OutputStream = std::ostream;
+	using IOStream = std::iostream;
+
+	using InputFileStream = std::ifstream;
+	using OutputFileStream = std::ofstream;
+	using FileStream = std::fstream;
+	using InputStringStream = std::istringstream;
+	using OutputStringStream = std::ostringstream;
+	using StringStream = std::stringstream;
+
+	using StreamSize = std::streamsize;
+	using StreamPosition = std::streampos;
+	using StreamOffset = std::streamoff;
+	using OpenMode = std::ios::openmode;
 }

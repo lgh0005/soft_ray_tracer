@@ -4,10 +4,11 @@
 
 namespace bdt
 {
+    // [설명]
     class Profiler
     {
         BDT_DISABLE_COPY(Profiler)
-            BDT_DISABLE_MOVE(Profiler)
+        BDT_DISABLE_MOVE(Profiler)
 
     private:
         Profiler() = delete;
@@ -17,10 +18,11 @@ namespace bdt
         static void _Internal_Report(StringView name, SteadyTimePoint start, SteadyTimePoint end, SourceLocation location);
     };
 
+    // [설명]
     class ProfileScope
     {
         BDT_DISABLE_COPY(ProfileScope)
-            BDT_DISABLE_MOVE(ProfileScope)
+        BDT_DISABLE_MOVE(ProfileScope)
 
     public:
         explicit ProfileScope(StringView name, SourceLocation location = SourceLocation::current());
@@ -36,7 +38,6 @@ namespace bdt
 /*==========================================//
 //              Profiler Macros             //
 //==========================================*/
-
 #define BDT_PROFILE_CONCAT_IMPL(x, y) x##y
 #define BDT_PROFILE_CONCAT(x, y) BDT_PROFILE_CONCAT_IMPL(x, y)
 

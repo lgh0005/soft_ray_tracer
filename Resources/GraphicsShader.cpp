@@ -30,6 +30,11 @@ namespace bdt
         m_program->Bind();
     }
 
+    void GraphicsShader::Unbind()
+    {
+        GLGraphicsProgram::Unbind();
+    }
+
     bool GraphicsShader::IsValid() const
     {
         return m_program && m_program->IsValid();

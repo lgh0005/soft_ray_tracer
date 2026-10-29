@@ -64,6 +64,12 @@
     <ClCompile Include="Profiler.cpp">
       <Filter>소스 파일\Debug</Filter>
     </ClCompile>
+    <ClCompile Include="GLFWSnapshot.cpp">
+      <Filter>소스 파일\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GLGPUTimer.cpp">
+      <Filter>소스 파일\Debug</Filter>
+    </ClCompile>
     <ClCompile Include="InputManager.cpp">
       <Filter>소스 파일\Managers</Filter>
     </ClCompile>
@@ -169,6 +175,12 @@
       <Filter>소스 파일\Debug</Filter>
     </ClInclude>
     <ClInclude Include="Profiler.h">
+      <Filter>소스 파일\Debug</Filter>
+    </ClInclude>
+    <ClInclude Include="GLFWSnapshot.h">
+      <Filter>소스 파일\Debug</Filter>
+    </ClInclude>
+    <ClInclude Include="GLGPUTimer.h">
       <Filter>소스 파일\Debug</Filter>
     </ClInclude>
     <ClInclude Include="InputManager.h">

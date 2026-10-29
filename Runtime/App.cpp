@@ -6,12 +6,14 @@ namespace bdt
 {
 	bool App::Init()
 	{
-		// 0. [디버그] 로거 초기화
+		// 0. [디버그] 디버그 도구 초기화
 		BDT_LOG_INIT();
 
 		// 1. Window 및 OpenGL Context 생성
-		if (!BDT_WINDOW.Init())
-			return false;
+		if (!BDT_WINDOW.Init()) return false;
+
+		// [디버그] 555
+		BDT_GPU_PROFILE_INIT();
 
 		// 2. Time
 		BDT_TIME.Init();
@@ -41,7 +43,7 @@ namespace bdt
 		// 별도의 Init()이 없으므로 초기화하지 않음
 
 		// 8. GUIManager
-		TODO: BDT_GUI.Init();
+		BDT_GUI.Init();
 
 		m_appInitialized = true;
 		return true;
@@ -65,14 +67,26 @@ namespace bdt
 
 			// 4. World
 			BDT_WORLD.Update(BDT_TIME.GetDeltaTime());
-			BDT_WORLD.Submit();
 
 			// 5. Rendering
 			Render();
 
+			// 렌더링 결과를 버퍼 교환 전에 저장
+			HandleDebugSnapshot();
+
 			// 6. Swap Buffers
 			BDT_WINDOW.Update();
 		}
+	}
+
+	void App::HandleDebugSnapshot()
+	{
+		if (!BDT_KEYBOARD || !BDT_KEYBOARD->GetKeyDown(GLFW_KEY_ENTER)) return;
+
+		String error;
+		if (BDT_SNAPSHOT_SAVE(BDT_WINDOW.GetNativeWindow(), "snapshot.bmp", &error))
+			BDT_LOG_INFO("Screenshot saved: snapshot.bmp");
+		else BDT_LOG_ERROR("Screenshot failed: {}", error);
 	}
 
 	void App::Render()
@@ -80,8 +94,7 @@ namespace bdt
 		// 1. Framebuffer Resize
 		const uint32 width = BDT_WINDOW.GetFramebufferWidth();
 		const uint32 height = BDT_WINDOW.GetFramebufferHeight();
-		if (width <= 0 || height <= 0)
-			return;
+		if (width <= 0 || height <= 0) return;
 
 		// 2. World 카메라의 Viewport 갱신
 		BDT_WORLD.Resize(width, height);
@@ -96,6 +109,7 @@ namespace bdt
 
 		// 4. Rendering
 		BDT_RENDER.Render(BDT_WORLD.GetRenderScene(), width, height);
+		BDT_GPU_PROFILE_COLLECT();
 
 		// 5. GUI Rendering
 		BDT_GUI.Render();
@@ -124,10 +138,13 @@ namespace bdt
 		// 7. TimeManager
 		BDT_TIME.Shutdown();
 
+		// [디버그] OpenGL 컨텍스트가 살아 있을 때 GPU 타이머 정리
+		BDT_GPU_PROFILE_CLEAR();
+
 		// 8. WindowManager
 		BDT_WINDOW.Shutdown();
 
-		// 씬 틱 확인용 디버그 로거 정리.
+		// [디버그] 다른 도구의 정리 로그 출력 후 로거 정리
 		BDT_LOG_CLEAR();
 	}
 

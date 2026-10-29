@@ -19,6 +19,7 @@ namespace bdt
 			String* error = nullptr
 		);
 		void Bind() const;
+		static void Unbind();
 		bool IsValid() const;
 
 	private:

@@ -5,7 +5,6 @@
 /*==========================================//
 //             Platform Breakpoint          //
 //==========================================*/
-
 #if defined(_MSC_VER)
 #include <intrin.h>
 #define BDT_PLATFORM_BREAK() __debugbreak()
@@ -23,7 +22,7 @@ namespace bdt
     class Asserter
     {
         BDT_DISABLE_COPY(Asserter)
-            BDT_DISABLE_MOVE(Asserter)
+        BDT_DISABLE_MOVE(Asserter)
 
     private:
         Asserter() = delete;

@@ -33,7 +33,6 @@ namespace bdt
 			return false;
 
 		// 프로그램 비동기 로드 요청
-		BDT_LOG_INFO("[GeometryPass] Requesting Static Geometry Shader.");
 		m_geometryShaderStatic = BDT_RESOURCE.LoadGraphicsShader
 		(
 			"MyLocalGeometry.Static",
@@ -43,7 +42,6 @@ namespace bdt
 			}
 		);
 
-		BDT_LOG_INFO("[GeometryPass] Requesting Skinned Geometry Shader.");
 		m_geometryShaderSkinned = BDT_RESOURCE.LoadGraphicsShader
 		(
 			"MyLocalGeometry.Skinned",
@@ -53,8 +51,6 @@ namespace bdt
 			}
 		);
 
-		m_staticShaderReadyLogged = false;
-		m_skinnedShaderReadyLogged = false;
 		return true;
 	}
 
@@ -74,17 +70,6 @@ namespace bdt
 		// 3. 셰이더 준비 여부 확인
 		auto staticShader = m_geometryShaderStatic.Get();
 		auto skinnedShader = m_geometryShaderSkinned.Get();
-		if (staticShader && staticShader->IsValid() && !m_staticShaderReadyLogged)
-		{
-			BDT_LOG_WARN("[GeometryPass] Static Geometry Shader ready.");
-			m_staticShaderReadyLogged = true;
-		}
-
-		if (skinnedShader && skinnedShader->IsValid() && !m_skinnedShaderReadyLogged)
-		{
-			BDT_LOG_WARN("[GeometryPass] Skinned Geometry Shader ready.");
-			m_skinnedShaderReadyLogged = true;
-		}
 
 		// 4. 렌더링 객체를 Queue에 등록
 		for (const RenderObject* object : scene->GetObjects())
@@ -108,15 +93,12 @@ namespace bdt
 		glDisable(GL_SCISSOR_TEST);
 		glDisable(GL_BLEND);
 		glDisable(GL_FRAMEBUFFER_SRGB);
-
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LESS);
 		glDepthMask(GL_TRUE);
-
 		glEnable(GL_CULL_FACE);
 		glCullFace(GL_BACK);
 		glFrontFace(GL_CCW);
-
 		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 		// 7. GBuffer 초기화
@@ -131,14 +113,16 @@ namespace bdt
 			glBindSampler(slot, sampler->GetSamplerID());
 
 		// 9. Static Mesh 인스턴싱 렌더링
-		if (staticShader && staticShader->IsValid()) m_staticQueue->Execute(staticShader.get());
+		if (staticShader && staticShader->IsValid()) 
+			m_staticQueue->Execute(staticShader.get());
 
 		// 10. Skinned Mesh 인스턴싱 렌더링
-		if (skinnedShader && skinnedShader->IsValid()) m_skinnedQueue->Execute(skinnedShader.get());
+		if (skinnedShader && skinnedShader->IsValid()) 
+			m_skinnedQueue->Execute(skinnedShader.get());
 
-		// 11. Framebuffer 해제
+		// 11. Framebuffer 및 셰이더 바인딩 해제
 		gBuffer->Unbind();
-		glUseProgram(0);
+		GraphicsShader::Unbind();
 	}
 
 	void MySimpleGeometryPass::SubmitObject(const RenderObject& object)

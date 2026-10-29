@@ -7,7 +7,6 @@ namespace bdt
     /*==========================================//
     //                  Profiler               //
     //==========================================*/
-
     double Profiler::_Internal_GetElapsedMilliseconds(SteadyTimePoint start, SteadyTimePoint end)
     {
         MillisecondDuration elapsed = end - start;
@@ -31,7 +30,6 @@ namespace bdt
     /*==========================================//
     //                ProfileScope             //
     //==========================================*/
-
     ProfileScope::ProfileScope(StringView name, SourceLocation location)
         : m_name(name), m_start(SteadyClock::now()), m_location(location)
     {}

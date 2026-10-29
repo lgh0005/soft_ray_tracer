@@ -87,7 +87,7 @@ namespace bdt
 
 		// 10. 바인딩 해제
 		m_renderScreen.Unbind();
-		glUseProgram(0);
+		GraphicsShader::Unbind();
 		MyGBuffer::UnbindTextures();
 		for (uint32 slot = 0; slot < static_cast<uint32>(EGBufferTextureSlot::Count); ++slot)
 			glBindSampler(slot, 0);

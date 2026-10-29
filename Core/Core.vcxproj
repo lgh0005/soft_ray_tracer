@@ -205,6 +205,8 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     <ClInclude Include="Mouse.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Profiler.h" />
+    <ClInclude Include="GLFWSnapshot.h" />
+    <ClInclude Include="GLGPUTimer.h" />
     <ClInclude Include="TaskManager.h" />
     <ClInclude Include="TimeManager.h" />
     <ClInclude Include="Types.h" />
@@ -251,6 +253,8 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Profiler.cpp" />
+    <ClCompile Include="GLFWSnapshot.cpp" />
+    <ClCompile Include="GLGPUTimer.cpp" />
     <ClCompile Include="GLWindow.cpp" />
     <ClCompile Include="TaskManager.cpp" />
     <ClCompile Include="TimeManager.cpp" />
