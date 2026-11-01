@@ -1,16 +1,7 @@
 #include "pch.h"
-#include "MyGBuffer.h"
 #include "MySimpleGeometryPass.h"
+#include "MySimpleGBuffer.h"
 #include "MySimpleBus.h"
-
-#include <Core/GLSampler.h>
-#include <Resources/Resource.h>
-#include <Resources/GraphicsShader.h>
-#include <Rendering/RenderScene.h>
-#include <Rendering/RenderObject.h>
-#include <Rendering/StaticRenderQueue.h>
-#include <Rendering/SkinnedRenderQueue.h>
-#include <Rendering/Instances.h>
 
 namespace bdt
 {
@@ -26,13 +17,13 @@ namespace bdt
 
 	bool MySimpleGeometryPass::Init()
 	{
-		// RenderQueue 생성
-		m_staticQueue = StaticRenderQueue::Create();
-		m_skinnedQueue = SkinnedRenderQueue::Create();
-		if (!m_staticQueue || !m_skinnedQueue)
-			return false;
+		// Material Sampler 생성
+		m_materialSampler = GLSampler::Create();
+		if (!m_materialSampler) return false;
+		m_materialSampler->SetFilter(GL_LINEAR, GL_LINEAR);
+		m_materialSampler->SetWrap(GL_REPEAT, GL_REPEAT);
 
-		// 프로그램 비동기 로드 요청
+		// GeometryShaderStatic 로드
 		m_geometryShaderStatic = BDT_RESOURCE.LoadGraphicsShader
 		(
 			"MyLocalGeometry.Static",
@@ -42,6 +33,7 @@ namespace bdt
 			}
 		);
 
+		// GeometryShaderSkinned 로드
 		m_geometryShaderSkinned = BDT_RESOURCE.LoadGraphicsShader
 		(
 			"MyLocalGeometry.Skinned",
@@ -56,103 +48,49 @@ namespace bdt
 
 	void MySimpleGeometryPass::Execute(IRenderBus& bus)
 	{
-		// 1. RenderQueue 초기화
-		m_staticQueue->Clear();
-		m_skinnedQueue->Clear();
-
-		// 2. RenderBus 및 RenderScene 가져오기
+		// 1. RenderBus 및 RenderScene 가져오기
 		auto* geometryBus = static_cast<MySimpleBus*>(&bus);
 		if (!geometryBus) return;
 
 		const RenderScene* scene = geometryBus->GetRenderScene();
-		MyGBuffer* gBuffer = geometryBus->GetGBuffer();
+		MySimpleGBuffer* gBuffer = geometryBus->GetGBuffer();
+		if (!scene || !gBuffer) return;
 
-		// 3. 셰이더 준비 여부 확인
+		// 2. 셰이더 준비 여부 확인
 		auto staticShader = m_geometryShaderStatic.Get();
 		auto skinnedShader = m_geometryShaderSkinned.Get();
 
-		// 4. 렌더링 객체를 Queue에 등록
-		for (const RenderObject* object : scene->GetObjects())
-		{
-			if (object)
-				SubmitObject(*object);
-		}
-
-		for (const auto* group : scene->GetObjectGroups())
-		{
-			if (!group) continue;
-			for (const RenderObject& object : *group)
-				SubmitObject(object);
-		}
-
-		// 5. GBuffer 바인딩
+		// 3. GBuffer 바인딩
 		gBuffer->Bind();
-		glViewport(0, 0, static_cast<GLsizei>(gBuffer->GetWidth()), static_cast<GLsizei>(gBuffer->GetHeight()));
+		glViewport(0, 0, (GLsizei)gBuffer->GetWidth(), (GLsizei)gBuffer->GetHeight());
 
-		// 6. GeometryPass 렌더링 상태
-		glDisable(GL_SCISSOR_TEST);
-		glDisable(GL_BLEND);
-		glDisable(GL_FRAMEBUFFER_SRGB);
+		// 4. GeometryPass 렌더링 상태
 		glEnable(GL_DEPTH_TEST);
-		glDepthFunc(GL_LESS);
 		glDepthMask(GL_TRUE);
-		glEnable(GL_CULL_FACE);
-		glCullFace(GL_BACK);
-		glFrontFace(GL_CCW);
+		glDepthFunc(GL_LESS);
 		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
-		// 7. GBuffer 초기화
-		const GLfloat clearColor[4]{ 0.0f, 0.0f, 0.0f, 0.0f };
-		for (GLint i = 0; i < static_cast<GLint>(EGBufferTextureSlot::Depth); ++i)
-			glClearBufferfv(GL_COLOR, i, clearColor);
-		const GLfloat clearDepth = 1.0f; glClearBufferfv(GL_DEPTH, 0, &clearDepth);
+		// 5. GBuffer 초기화
+		gBuffer->Clear();
 
-		// 8. 샘플러 바인딩
-		GLSampler* sampler = BDT_RENDER.GetLinearRepeatSampler();
-		for (uint32 slot = 0; slot < static_cast<uint32>(EMaterialTextureSlot::Count); ++slot)
-			glBindSampler(slot, sampler->GetSamplerID());
+		// 6. 샘플러 바인딩
+		for (uint32 slot = 0; slot < (uint32)EMaterialTextureSlot::Count; ++slot)
+			m_materialSampler->Bind(slot);
 
-		// 9. Static Mesh 인스턴싱 렌더링
-		if (staticShader && staticShader->IsValid()) 
-			m_staticQueue->Execute(staticShader.get());
+		// 7. 인스턴싱 렌더링
+		geometryBus->ExecuteRenderQueues(staticShader, skinnedShader);
 
-		// 10. Skinned Mesh 인스턴싱 렌더링
-		if (skinnedShader && skinnedShader->IsValid()) 
-			m_skinnedQueue->Execute(skinnedShader.get());
-
-		// 11. Framebuffer 및 셰이더 바인딩 해제
+		// 8. Framebuffer 및 셰이더 바인딩 해제
 		gBuffer->Unbind();
+		for (uint32 slot = 0; slot < (uint32)EMaterialTextureSlot::Count; ++slot)
+			GLSampler::Unbind(slot);
 		GraphicsShader::Unbind();
-	}
-
-	void MySimpleGeometryPass::SubmitObject(const RenderObject& object)
-	{
-		const auto& mesh = object.GetMesh();
-		const auto material = object.GetMaterial().Get();
-		if (!mesh) return;
-
-		if (object.IsSkinned())
-		{
-			const List<mat4>* bones = object.GetBoneMatrices();
-			if (!bones) return;
-
-			SkinnedInstanceProperty property{};
-			property.worldMatrix = object.GetWorldMatrix();
-			m_skinnedQueue->Add(mesh.get(), material.get(), property, *bones);
-		}
-		else
-		{
-			StaticInstanceProperty property{};
-			property.worldMatrix = object.GetWorldMatrix();
-			m_staticQueue->Add(mesh.get(), material.get(), property);
-		}
 	}
 
 	void MySimpleGeometryPass::Shutdown()
 	{
-		m_staticQueue.reset();
-		m_skinnedQueue.reset();
-		m_geometryShaderStatic = {};
+		m_geometryShaderStatic  = {};
 		m_geometryShaderSkinned = {};
+		m_materialSampler.reset();
 	}
 }

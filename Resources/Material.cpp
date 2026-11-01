@@ -28,4 +28,14 @@ namespace bdt
     {
         return m_textures;
     }
+
+    void Material::SetRoughnessFactor(float factor)
+    {
+        m_desc.roughnessFactor = glm::clamp(factor, 0.0f, 1.0f);
+    }
+
+    void Material::SetEmissionStrength(float strength)
+    {
+        m_desc.emissionStrength = glm::max(strength, 0.0f);
+    }
 }

@@ -4,9 +4,6 @@
 #include <assimp/material.h>
 #include <assimp/postprocess.h>
 
-#include <filesystem>
-#include <variant>
-
 namespace bdt
 {
 	ModelImporter::ModelImporter() = default;
@@ -324,15 +321,26 @@ namespace bdt
         MaterialDesc desc;
         MaterialTexturePaths paths;
 
-        // Texture Paths
-        paths.albedo = GetTexturePath(material, aiTextureType_BASE_COLOR, path);
-        if (paths.albedo.empty()) paths.albedo = GetTexturePath(material, aiTextureType_DIFFUSE, path);
-        paths.normal = GetTexturePath(material, aiTextureType_NORMALS, path);
-        paths.ao = GetTexturePath(material, aiTextureType_AMBIENT_OCCLUSION, path);
-        if (paths.ao.empty()) paths.ao = GetTexturePath(material, aiTextureType_LIGHTMAP, path);
-        paths.roughness = GetTexturePath(material, aiTextureType_DIFFUSE_ROUGHNESS, path);
-        paths.emission = GetTexturePath(material, aiTextureType_EMISSIVE, path);
-        paths.height = GetTexturePath(material, aiTextureType_HEIGHT, path);
+        // 기본 슬롯의 실제 경로가 없을 때만 호환 슬롯을 순서대로 조회한다.
+        paths.albedo = GetTexturePath(material, { aiTextureType_BASE_COLOR, aiTextureType_DIFFUSE }, path);
+        paths.normal = GetTexturePath(material, { aiTextureType_NORMAL_CAMERA, aiTextureType_NORMALS }, path);
+        paths.ao = GetTexturePath(material, { aiTextureType_AMBIENT_OCCLUSION, aiTextureType_LIGHTMAP }, path);
+        int32 roughnessType = -1;
+        paths.roughness = GetTexturePath
+        (
+            material,
+            { aiTextureType_DIFFUSE_ROUGHNESS, aiTextureType_MAYA_SPECULAR_ROUGHNESS, aiTextureType_SHININESS },
+            path,
+            &roughnessType
+        );
+        const bool usesLegacyRoughness = roughnessType == aiTextureType_SHININESS;
+        paths.metallic = GetTexturePath(material, { aiTextureType_METALNESS }, path);
+
+        // 기존 FBX 변환 경로에서만 원본 Specular를 사용하며 파일명을 추측하지 않는다.
+        if (usesLegacyRoughness && !paths.metallic.empty())
+            paths.specular = GetTexturePath(material, { aiTextureType_SPECULAR, aiTextureType_MAYA_SPECULAR_COLOR }, path);
+        paths.emission = GetTexturePath(material, { aiTextureType_EMISSION_COLOR, aiTextureType_EMISSIVE }, path);
+        paths.height = GetTexturePath(material, { aiTextureType_HEIGHT, aiTextureType_DISPLACEMENT }, path);
 
         // Base Color
         aiColor4D color;
@@ -347,8 +355,14 @@ namespace bdt
 
         // PBR Factors
         float value{ 0.0f };
-        if (material->Get(AI_MATKEY_METALLIC_FACTOR, value) == AI_SUCCESS) desc.metallicFactor = value;
-        if (material->Get(AI_MATKEY_ROUGHNESS_FACTOR, value) == AI_SUCCESS) desc.roughnessFactor = value;
+        if (material->Get(AI_MATKEY_METALLIC_FACTOR, value) == AI_SUCCESS)
+            desc.metallicFactor = value;
+        else if (!paths.metallic.empty())
+            desc.metallicFactor = 1.0f;
+
+        // SHININESS 호환 슬롯은 프로젝트의 독립 Roughness 입력으로 사용하며 배율은 1을 유지한다.
+        if (!usesLegacyRoughness && material->Get(AI_MATKEY_ROUGHNESS_FACTOR, value) == AI_SUCCESS)
+            desc.roughnessFactor = value;
         if (material->Get(AI_MATKEY_EMISSIVE_INTENSITY, value) == AI_SUCCESS) desc.emissionStrength = value;
 
         outputDesc = std::move(desc);
@@ -386,24 +400,54 @@ namespace bdt
             weight /= sum;
     }
 
-    String ModelImporter::GetTexturePath(const aiMaterial* material, int32 textureType, const String& modelPath)
+    String ModelImporter::GetTexturePath
+    (
+        const aiMaterial* material,
+        std::initializer_list<int32> textureTypes,
+        const String& modelPath,
+        int32* selectedType
+    )
     {
+        if (selectedType) *selectedType = -1;
         if (!material) return {};
 
-        aiString texturePath;
-        if (material->GetTexture(static_cast<aiTextureType>(textureType), 0, &texturePath) != AI_SUCCESS)
-            return {};
-
-        String path = texturePath.C_Str();
-        if (path.empty()) return {};
-
-        // Embedded Texture
-        if (path[0] == '*') return path;
-
-        std::filesystem::path texture = std::filesystem::path(path).filename();
-        if (texture.empty()) return {};
-        texture.replace_extension(".ktx2");
         const std::filesystem::path directory = std::filesystem::path(modelPath).parent_path();
-        return (directory / texture).lexically_normal().string();
+        for (int32 type : textureTypes)
+        {
+            const auto textureType = static_cast<aiTextureType>(type);
+            for (uint32 index = 0; index < material->GetTextureCount(textureType); ++index)
+            {
+                aiString texturePath;
+                if (material->GetTexture(textureType, index, &texturePath) != AI_SUCCESS) continue;
+                String path = texturePath.C_Str();
+                if (path.empty()) continue;
+
+                // Embedded 참조는 기존 계약대로 보존한다. 실제 로딩 지원은 별도 경로다.
+                if (path[0] == '*')
+                {
+                    if (selectedType) *selectedType = type;
+                    return path;
+                }
+
+                // Image2D는 KTX2를 사용하므로 원본 경로 구조를 유지해 확장자만 변환한다.
+                std::filesystem::path texture(path);
+                if (texture.filename().empty()) continue;
+                texture.replace_extension(".ktx2");
+                const std::filesystem::path candidates[] =
+                {
+                    texture.is_absolute() ? texture : directory / texture,
+                    directory / texture.filename()
+                };
+                for (const auto& candidate : candidates)
+                {
+                    const auto normalized = candidate.lexically_normal();
+                    std::error_code error;
+                    if (!std::filesystem::is_regular_file(normalized, error)) continue;
+                    if (selectedType) *selectedType = type;
+                    return normalized.string();
+                }
+            }
+        }
+        return {};
     }
 }

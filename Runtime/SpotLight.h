@@ -12,8 +12,10 @@ namespace bdt
         virtual ~SpotLight() override;
 
     public:
-        LightData GetLightData() const override;
+        virtual LightData GetLightData() const override;
+        virtual mat4 GetViewProjectionMatrix() const override;
 
+    public:
         float GetRange() const;
         float GetInnerConeAngle() const;
         float GetOuterConeAngle() const;
@@ -24,8 +26,6 @@ namespace bdt
 
     private:
         float m_range{ 10.0f };
-
-        // Degree 단위
         float m_innerConeAngle{ 12.5f };
         float m_outerConeAngle{ 17.5f };
     };

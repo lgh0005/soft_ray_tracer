@@ -1,63 +1,84 @@
 #include "pch.h"
-#include "MyGBuffer.h"
-#include <Rendering/Framebuffer2D.h>
-#include <Rendering/RenderTexture2D.h>
+#include "MySimpleGBuffer.h"
 
 namespace bdt
 {
-	MyGBuffer::MyGBuffer() = default;
-	MyGBuffer::~MyGBuffer() = default;
+	MySimpleGBuffer::MySimpleGBuffer() = default;
+	MySimpleGBuffer::~MySimpleGBuffer() = default;
 
-    bool MyGBuffer::Resize(uint32 width, uint32 height)
+    bool MySimpleGBuffer::Resize(uint32 width, uint32 height)
     {
         if (width == 0 || height == 0) return false;
         if (width == m_width && height == m_height) return true;
         return Init(width, height);
     }
 
-    void MyGBuffer::Bind() const
+    void MySimpleGBuffer::Bind() const
     {
         if (!m_framebuffer) return;
         m_framebuffer->Bind();
     }
 
-    void MyGBuffer::Unbind() const
+    void MySimpleGBuffer::Unbind() const
     {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
-    uint32 MyGBuffer::GetWidth() const
+    void MySimpleGBuffer::Clear() const
+    {
+        // 컬러 버퍼 초기화
+        const GLfloat clearColor[4]{ 0.0f, 0.0f, 0.0f, 0.0f };
+        for (GLint i = 0; i < static_cast<GLint>(EGBufferTextureSlot::Depth); ++i)
+            glClearBufferfv(GL_COLOR, i, clearColor);
+
+        // 깊이 버퍼 초기화
+        const GLfloat clearDepth = 1.0f;
+        glClearBufferfv(GL_DEPTH, 0, &clearDepth);
+    }
+
+    uint32 MySimpleGBuffer::GetWidth() const
     {
         return m_width;
     }
 
-    uint32 MyGBuffer::GetHeight() const
+    uint32 MySimpleGBuffer::GetHeight() const
     {
         return m_height;
     }
 
-    void MyGBuffer::BindTextures() const
+    void MySimpleGBuffer::BindTextures() const
     {
         for (uint32 slot = 0; slot < static_cast<uint32>(EGBufferTextureSlot::Count); ++slot)
+        {
             m_textures[slot]->Bind(slot);
+            m_sampler->Bind(slot);
+        }
     }
 
-    void MyGBuffer::UnbindTextures()
+    void MySimpleGBuffer::UnbindTextures()
     {
         for (uint32 slot = 0; slot < static_cast<uint32>(EGBufferTextureSlot::Count); ++slot)
+        {
             RenderTexture2D::Unbind(slot);
+            GLSampler::Unbind(slot);
+        }
     }
 
-    RenderTexture2D* MyGBuffer::GetTexture(EGBufferTextureSlot slot) const
+    RenderTexture2D* MySimpleGBuffer::GetTexture(EGBufferTextureSlot slot) const
     {
         const usize index = static_cast<usize>(slot);
         if (index >= m_textures.size()) return nullptr;
         return m_textures[index].get();
     }
 
-    bool MyGBuffer::IsValid() const
+    GLSampler* MySimpleGBuffer::GetSampler() const
     {
-        if (!m_framebuffer) return false;
+        return m_sampler.get();
+    }
+
+    bool MySimpleGBuffer::IsValid() const
+    {
+        if (!m_framebuffer || !m_sampler || !m_sampler->IsValid()) return false;
 
         for (const auto& texture : m_textures)
         {
@@ -68,14 +89,14 @@ namespace bdt
         return true;
     }
 
-    MyGBufferUPtr MyGBuffer::Create(uint32 width, uint32 height)
+    MySimpleGBufferUPtr MySimpleGBuffer::Create(uint32 width, uint32 height)
     {
-        MyGBufferUPtr gBuffer(new MyGBuffer());
+        MySimpleGBufferUPtr gBuffer(new MySimpleGBuffer());
         if (!gBuffer->Init(width, height)) return nullptr;
         return gBuffer;
     }
 
-    bool MyGBuffer::Init(uint32 width, uint32 height)
+    bool MySimpleGBuffer::Init(uint32 width, uint32 height)
     {
         if (width == 0 || height == 0) return false;
 
@@ -105,13 +126,12 @@ namespace bdt
         {
             if (!texture || !texture->IsValid())
                 return false;
-
-            const uint32 textureID = texture->GetTextureID();
-            glTextureParameteri(textureID, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTextureParameteri(textureID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTextureParameteri(textureID, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTextureParameteri(textureID, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         }
+
+        auto sampler = GLSampler::Create();
+        if (!sampler) return false;
+        sampler->SetFilter(GL_NEAREST, GL_NEAREST);
+        sampler->SetWrap(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
 
         // 2. Framebuffer 생성
         auto framebuffer = Framebuffer2D::Create(width, height);
@@ -135,6 +155,7 @@ namespace bdt
         if (!framebuffer) return false;
 
         m_framebuffer = std::move(framebuffer);
+        m_sampler = std::move(sampler);
         m_textures = std::move(textures);
         m_width = width;
         m_height = height;

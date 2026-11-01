@@ -6,6 +6,7 @@
 #include "LightActor.h"
 #include "ModelActor.h"
 #include "PrimitiveActor.h"
+#include "PrimitiveRenderer.h"
 #include "CameraComponent.h"
 #include "LightComponent.h"
 #include "ModelRenderer.h"
@@ -38,6 +39,9 @@ namespace bdt
         if (!m_mainCamera)
             return;
 
+        // Environment Image 준비 
+        CreateImageBasedLight();
+
         // 메인 카메라 갱신
         m_mainCamera->Update(deltaTime);
 
@@ -56,7 +60,10 @@ namespace bdt
         CameraComponent* camera = m_mainCamera->GetCameraComponent();
         scene.SetCamera(camera->GetCameraData());
 
-        // 3. Actor 순회
+        // 3. World의 IBL을 RenderScene에 전달
+        scene.SetImageBasedLight(m_imageBasedLight.get());
+
+        // 4. Actor 순회
         for (const auto& actor : m_actors)
         {
             if (!actor) continue;
@@ -67,7 +74,12 @@ namespace bdt
                 {
                     const auto* lightActor = static_cast<const LightActor*>(actor);
                     LightComponent* light = lightActor->GetLightComponent();
-                    scene.AddLight(light->GetLightData());
+                    scene.AddLight
+                    (
+                        light->GetLightData(), 
+                        light->IsShadowEnabled(),
+                        light->GetViewProjectionMatrix()
+                    );
                     break;
                 }
 
@@ -81,9 +93,9 @@ namespace bdt
 
                 case EActorType::Primitive:
                 {
-                    // TODO:
-                    // PrimitiveRenderer에 Mesh / Material
-                    // 조회 API가 구현되면 RenderObject 제출
+                    const auto* primitiveActor = static_cast<const PrimitiveActor*>(actor);
+                    PrimitiveRenderer* renderer = primitiveActor->GetPrimitiveRenderer();
+                    if (renderer) scene.AddObjects(renderer->GetRenderObjects());
                     break;
                 }
 
@@ -123,6 +135,20 @@ namespace bdt
         if (!m_mainCamera) return;
         auto camera = m_mainCamera->GetCameraComponent();
         if (camera) camera->SetViewportSize(width, height);
+    }
+
+    void World::SetEnvironmentImage(const String& path)
+    {
+        m_imageBasedLight.reset();
+        m_environmentImage = BDT_RESOURCE.LoadImage2D(path);
+    }
+
+    void World::CreateImageBasedLight()
+    {
+        if (m_imageBasedLight) return;
+        auto image = m_environmentImage.Get();
+        if (!image || !image->IsValid()) return;
+        m_imageBasedLight = ImageBasedLight::Create(image);
     }
 
     void World::LoadResources()

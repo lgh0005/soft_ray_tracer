@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -184,6 +184,7 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     <ClInclude Include="GLProgramBuilder.h" />
     <ClInclude Include="GLComputeProgram.h" />
     <ClInclude Include="GLBuffer.h" />
+    <ClInclude Include="GLStorageBuffer.h" />
     <ClInclude Include="GLFramebuffer2D.h" />
     <ClInclude Include="GLFramebufferCube.h" />
     <ClInclude Include="GLScreenMesh.h" />
@@ -227,6 +228,7 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     <ClCompile Include="GLProgramBuilder.cpp" />
     <ClCompile Include="GLComputeProgram.cpp" />
     <ClCompile Include="GLBuffer.cpp" />
+    <ClCompile Include="GLStorageBuffer.cpp" />
     <ClCompile Include="GLFramebuffer2D.cpp" />
     <ClCompile Include="GLFramebufferCube.cpp" />
     <ClCompile Include="GLScreenMesh.cpp" />

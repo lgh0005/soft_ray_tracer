@@ -1,6 +1,7 @@
 #pragma once
 #include "Importer.h"
 #include "ModelData.h"
+#include <initializer_list>
 
 struct aiScene;
 struct aiNode;
@@ -34,7 +35,13 @@ namespace bdt
         static bool ExtractMaterial(const aiMaterial* material, const String& path, MaterialDesc& outputDesc, MaterialTexturePaths& outputPaths);
         static void AddBoneWeight(GLSkinnedVertex& vertex, int32 boneID, float weight);
         static void NormalizeBoneWeights(GLSkinnedVertex& vertex);
-        static String GetTexturePath(const aiMaterial* material, int32 textureType, const String& modelPath);
+        static String GetTexturePath
+        (
+            const aiMaterial* material,
+            std::initializer_list<int32> textureTypes,
+            const String& modelPath,
+            int32* selectedType = nullptr
+        );
     };
 }
 

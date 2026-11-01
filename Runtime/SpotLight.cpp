@@ -1,11 +1,11 @@
 #include "pch.h"
 #include "SpotLight.h"
 #include "Enums.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 namespace bdt
 {
-    SpotLight::SpotLight(Actor* owner)
-        : Super(owner) {}
+    SpotLight::SpotLight(Actor* owner) : Super(owner) { }
 
     SpotLight::~SpotLight() = default;
 
@@ -71,5 +71,31 @@ namespace bdt
         data.outerConeAngle = glm::cos(glm::radians(m_outerConeAngle));
 
         return data;
+    }
+
+    mat4 SpotLight::GetViewProjectionMatrix() const
+    {
+        // View Matrix
+        const vec3 position = GetPosition();
+        const vec3 forward = glm::normalize(GetRotation() * vec3(0.0f, -1.0f, 0.0f));
+        vec3 up(0.0f, 1.0f, 0.0f);
+
+        const vec3 absForward = glm::abs(forward);
+        if (absForward.y > absForward.x && absForward.y > absForward.z)
+            up = vec3(1.0f, 0.0f, 0.0f);
+
+        const mat4 view = glm::lookAt(position, position + forward, up);
+
+        // 전체 시야각은 외부 원뿔 반각의 2배
+        const float fov = m_outerConeAngle * 2.0f;
+        const mat4 projection = glm::perspective
+        (
+            glm::radians(fov),
+            1.0f,
+            m_shadowNearPlane,
+            m_shadowFarPlane
+        );
+
+        return projection * view;
     }
 }

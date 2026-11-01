@@ -39,4 +39,9 @@ namespace bdt
     {
         return m_program && m_program->IsValid();
     }
+
+    uint32 ComputeShader::GetProgramID() const
+    {
+        return m_program ? m_program->GetProgramID() : 0;
+    }
 }

@@ -32,6 +32,9 @@ namespace bdt
 		void SetFilter(GLenum minFilter, GLenum magFilter);
 		void SetMaxAnisotropy(float anisotropy);
 
+		void SetBorderColor(const vec4& color);
+		void SetCompareMode(GLenum mode);
+
 	public:
 		uint32 GetSamplerID() const;
 		bool IsValid() const;

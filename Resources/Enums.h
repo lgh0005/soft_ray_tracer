@@ -11,6 +11,8 @@ namespace bdt
         Roughness,
         Emission,
         Height,
+        Metallic,
+        Specular,
         Count
     };
 }

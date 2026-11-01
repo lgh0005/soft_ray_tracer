@@ -1,0 +1,106 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="소스 파일">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="소스 파일\Headers">
+      <UniqueIdentifier>{17360946-825a-4610-96c6-dca7644fa8b8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Main">
+      <UniqueIdentifier>{af828809-fb29-4577-b9db-4d3f248c4fdb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Accelerates">
+      <UniqueIdentifier>{0f53ecc1-c05b-41b7-a7d6-6f7f9c86cb52}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Accelerates\BVH">
+      <UniqueIdentifier>{a1e2609f-8f9c-40a6-b37f-98bfcabc46f3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Accelerates\Spatial">
+      <UniqueIdentifier>{dabc777a-7898-4344-819d-e99bd2f2fc95}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Boundings">
+      <UniqueIdentifier>{070e3e51-6acc-4b87-8ef8-69403dc4b394}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Rays">
+      <UniqueIdentifier>{5a974e92-9bfc-4f7d-afef-f10a4cea6c87}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Managers">
+      <UniqueIdentifier>{3b8f9b1c-958f-48cc-81a8-ff13ea9313bb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Geometry">
+      <UniqueIdentifier>{15823924-00df-4631-b754-9d1536c1646c}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h">
+      <Filter>소스 파일\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="RayTracing.h">
+      <Filter>소스 파일\Main</Filter>
+    </ClInclude>
+    <ClInclude Include="BVH.h">
+      <Filter>소스 파일\Accelerates\BVH</Filter>
+    </ClInclude>
+    <ClInclude Include="AABB.h">
+      <Filter>소스 파일\Boundings</Filter>
+    </ClInclude>
+    <ClInclude Include="BLAS.h">
+      <Filter>소스 파일\Accelerates\BVH</Filter>
+    </ClInclude>
+    <ClInclude Include="TLAS.h">
+      <Filter>소스 파일\Accelerates\BVH</Filter>
+    </ClInclude>
+    <ClInclude Include="InstanceManager.h">
+      <Filter>소스 파일\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="RayTracingData.h">
+      <Filter>소스 파일\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Octree.h">
+      <Filter>소스 파일\Accelerates\Spatial</Filter>
+    </ClInclude>
+    <ClInclude Include="KDTree.h">
+      <Filter>소스 파일\Accelerates\Spatial</Filter>
+    </ClInclude>
+    <ClInclude Include="BSPTree.h">
+      <Filter>소스 파일\Accelerates\Spatial</Filter>
+    </ClInclude>
+    <ClInclude Include="RayTracingUniforms.h">
+      <Filter>소스 파일\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="RTGeometry.h">
+      <Filter>소스 파일\Geometry</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp">
+      <Filter>소스 파일\Headers</Filter>
+    </ClCompile>
+    <ClCompile Include="BVH.cpp">
+      <Filter>소스 파일\Accelerates\BVH</Filter>
+    </ClCompile>
+    <ClCompile Include="AABB.cpp">
+      <Filter>소스 파일\Boundings</Filter>
+    </ClCompile>
+    <ClCompile Include="BLAS.cpp">
+      <Filter>소스 파일\Accelerates\BVH</Filter>
+    </ClCompile>
+    <ClCompile Include="TLAS.cpp">
+      <Filter>소스 파일\Accelerates\BVH</Filter>
+    </ClCompile>
+    <ClCompile Include="InstanceManager.cpp">
+      <Filter>소스 파일\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="Octree.cpp">
+      <Filter>소스 파일\Accelerates\Spatial</Filter>
+    </ClCompile>
+    <ClCompile Include="KDTree.cpp">
+      <Filter>소스 파일\Accelerates\Spatial</Filter>
+    </ClCompile>
+    <ClCompile Include="BSPTree.cpp">
+      <Filter>소스 파일\Accelerates\Spatial</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

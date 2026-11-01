@@ -177,29 +177,68 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="MyGBuffer.h" />
+    <ClInclude Include="MySimpleGBuffer.h" />
+    <ClInclude Include="MyRTBruteForce.h" />
+    <ClInclude Include="RTSpatialGBuffer.h" />
+    <ClInclude Include="RTSpatialBus.h" />
+    <ClInclude Include="RTBVHGBuffer.h" />
+    <ClInclude Include="RTBVHBus.h" />
+    <ClInclude Include="MyRTBVHOptimized.h" />
     <ClInclude Include="MySimpleBus.h" />
+    <ClInclude Include="MySimpleShadowPass.h" />
+    <ClInclude Include="MySimpleSSAOPass.h" />
+    <ClInclude Include="MySimpleForwardPass.h" />
+    <ClInclude Include="MySimpleSkyboxPass.h" />
+    <ClInclude Include="MySimplePostProcessingPass.h" />
     <ClInclude Include="MySimpleGeometryPass.h" />
     <ClInclude Include="MySimplePipeline.h" />
-    <ClInclude Include="MySimpleOutputPass.h" />
+    <ClInclude Include="MySimpleDeferredShadingPass.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Enums.h" />
     <ClInclude Include="Pipelines.h" />
+    <ClInclude Include="RTBruteForceBus.h" />
+    <ClInclude Include="RTBruteForceGBuffer.h" />
+    <ClInclude Include="RTBruteForceOutputPass.h" />
+    <ClInclude Include="RTClosestHitPass.h" />
+    <ClInclude Include="RTRayGenerationPass.h" />
+    <ClInclude Include="RTSecondaryRayPass.h" />
+    <ClInclude Include="RTShadingPass.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="MyGBuffer.cpp" />
+    <ClCompile Include="MySimpleGBuffer.cpp" />
+    <ClCompile Include="MyRTBruteForce.cpp" />
+    <ClCompile Include="RTSpatialGBuffer.cpp" />
+    <ClCompile Include="RTSpatialBus.cpp" />
+    <ClCompile Include="RTBVHGBuffer.cpp" />
+    <ClCompile Include="RTBVHBus.cpp" />
+    <ClCompile Include="MyRTBVHOptimized.cpp" />
     <ClCompile Include="MySimpleBus.cpp" />
+    <ClCompile Include="MySimpleShadowPass.cpp" />
+    <ClCompile Include="MySimpleSSAOPass.cpp" />
+    <ClCompile Include="MySimpleForwardPass.cpp" />
+    <ClCompile Include="MySimpleSkyboxPass.cpp" />
+    <ClCompile Include="MySimplePostProcessingPass.cpp" />
     <ClCompile Include="MySimpleGeometryPass.cpp" />
     <ClCompile Include="MySimplePipeline.cpp" />
-    <ClCompile Include="MySimpleOutputPass.cpp" />
+    <ClCompile Include="MySimpleDeferredShadingPass.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="RTBruteForceBus.cpp" />
+    <ClCompile Include="RTBruteForceGBuffer.cpp" />
+    <ClCompile Include="RTBruteForceOutputPass.cpp" />
+    <ClCompile Include="RTClosestHitPass.cpp" />
+    <ClCompile Include="RTRayGenerationPass.cpp" />
+    <ClCompile Include="RTSecondaryRayPass.cpp" />
+    <ClCompile Include="RTShadingPass.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\RayTracing\RayTracing.vcxproj">
+      <Project>{f0541140-d51f-477d-81e6-3104a4c67054}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\Rendering\Rendering.vcxproj">
       <Project>{c50cba75-5da0-4195-aec6-ab5993afab9f}</Project>
     </ProjectReference>

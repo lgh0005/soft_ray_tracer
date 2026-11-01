@@ -89,6 +89,18 @@ namespace bdt
 		glSamplerParameterf(m_samplerID, GL_TEXTURE_MAX_ANISOTROPY, clampedAnisotropy);
 	}
 
+	void GLSampler::SetBorderColor(const vec4& color)
+	{
+		if (!IsValid()) return;
+		glSamplerParameterfv(m_samplerID, GL_TEXTURE_BORDER_COLOR, glm::value_ptr(color));
+	}
+
+	void GLSampler::SetCompareMode(GLenum mode)
+	{
+		if (!IsValid()) return;
+		glSamplerParameteri(m_samplerID, GL_TEXTURE_COMPARE_MODE, static_cast<GLint>(mode));
+	}
+
 	uint32 GLSampler::GetSamplerID() const { return m_samplerID; }
 	bool GLSampler::IsValid() const { return m_samplerID != 0; }
 

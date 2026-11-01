@@ -1,10 +1,20 @@
 #pragma once
-#include "RootComponent.h"
+#include "PrimitiveRenderer.h"
 
 namespace bdt
 {
-	class BoxRenderer : public RootComponent
-	{
+	BDT_CLASS_PTR(BoxRenderer)
 
+	class BoxRenderer final : public PrimitiveRenderer
+	{
+		using Super = PrimitiveRenderer;
+
+	public:
+		explicit BoxRenderer(Actor* owner, const ResourceHandle<Material>& material = {});
+		~BoxRenderer() override;
+		EPrimitiveType GetPrimitiveType() const override;
+
+	protected:
+		StaticMeshPtr CreateMesh() const override;
 	};
 }

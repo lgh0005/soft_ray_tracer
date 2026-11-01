@@ -173,6 +173,8 @@ namespace bdt
                 textures.normal    = LoadImage2D(paths.normal);
                 textures.ao        = LoadImage2D(paths.ao);
                 textures.roughness = LoadImage2D(paths.roughness);
+                textures.metallic  = LoadImage2D(paths.metallic);
+                textures.specular  = LoadImage2D(paths.specular);
                 textures.emission  = LoadImage2D(paths.emission);
                 textures.height    = LoadImage2D(paths.height);
                 

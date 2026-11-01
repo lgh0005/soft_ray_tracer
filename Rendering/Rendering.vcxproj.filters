@@ -70,6 +70,12 @@
     <ClCompile Include="RenderTexture2D.cpp">
       <Filter>소스 파일\Targets</Filter>
     </ClCompile>
+    <ClCompile Include="RenderTextureArray2D.cpp">
+      <Filter>소스 파일\Targets</Filter>
+    </ClCompile>
+    <ClCompile Include="ImageBasedLight.cpp">
+      <Filter>소스 파일\Targets</Filter>
+    </ClCompile>
     <ClCompile Include="Framebuffer2D.cpp">
       <Filter>소스 파일\Targets</Filter>
     </ClCompile>
@@ -90,9 +96,6 @@
     </ClCompile>
     <ClCompile Include="IRenderTarget.cpp">
       <Filter>소스 파일\Interfaces</Filter>
-    </ClCompile>
-    <ClCompile Include="InstanceBuffer.cpp">
-      <Filter>소스 파일\Instancing</Filter>
     </ClCompile>
     <ClCompile Include="RenderScreen.cpp">
       <Filter>소스 파일\Targets</Filter>
@@ -144,6 +147,12 @@
     <ClInclude Include="RenderTexture2D.h">
       <Filter>소스 파일\Targets</Filter>
     </ClInclude>
+    <ClInclude Include="RenderTextureArray2D.h">
+      <Filter>소스 파일\Targets</Filter>
+    </ClInclude>
+    <ClInclude Include="ImageBasedLight.h">
+      <Filter>소스 파일\Targets</Filter>
+    </ClInclude>
     <ClInclude Include="Framebuffer2D.h">
       <Filter>소스 파일\Targets</Filter>
     </ClInclude>
@@ -164,9 +173,6 @@
     </ClInclude>
     <ClInclude Include="IRenderTarget.h">
       <Filter>소스 파일\Interfaces</Filter>
-    </ClInclude>
-    <ClInclude Include="InstanceBuffer.h">
-      <Filter>소스 파일\Instancing</Filter>
     </ClInclude>
     <ClInclude Include="Enums.h">
       <Filter>소스 파일\Headers</Filter>

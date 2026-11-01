@@ -23,33 +23,25 @@ namespace bdt
 		// 1. 공유 VAO 생성
 		m_staticVAO = GLVertexArray::Create();
 		m_skinnedVAO = GLVertexArray::Create();
-		m_screenVAO = GLVertexArray::Create();
-		if (!m_staticVAO || !m_skinnedVAO || !m_screenVAO) return false;
+		if (!m_staticVAO || !m_skinnedVAO) return false;
 
 		// 정점 Attribute 최초 설정
 		SetStaticVAOAttrib();
 		SetSkinnedVAOAttrib();
-		SetScreenVAOAttrib();
 
-		// 2. 공유 ScreenMesh 생성
-		m_screenMesh = ScreenMesh::Create();
-		if (!m_screenMesh) return false;
-
-		// 3. 샘플러 생성
-		m_linearClampSampler = GLSampler::Create();
-		if (!m_linearClampSampler) return false;
-		m_linearClampSampler->SetFilter(GL_LINEAR, GL_LINEAR);
-		m_linearClampSampler->SetWrap(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-
-		m_nearestClampSampler = GLSampler::Create();
-		if (!m_nearestClampSampler) return false;
-		m_nearestClampSampler->SetFilter(GL_NEAREST, GL_NEAREST);
-		m_nearestClampSampler->SetWrap(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-
-		m_linearRepeatSampler = GLSampler::Create();
-		if (!m_linearRepeatSampler) return false;
-		m_linearRepeatSampler->SetFilter(GL_LINEAR, GL_LINEAR);
-		m_linearRepeatSampler->SetWrap(GL_REPEAT, GL_REPEAT);
+		// 3. 공통 렌더링 상태 초기화
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_LESS);
+		glDepthMask(GL_TRUE);
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_BACK);
+		glFrontFace(GL_CCW);
+		glDisable(GL_BLEND);
+		glDisable(GL_SCISSOR_TEST);
+		glDisable(GL_FRAMEBUFFER_SRGB);
+		glDisable(GL_POLYGON_OFFSET_FILL);
+		glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 		return true;
 	}
@@ -86,15 +78,8 @@ namespace bdt
 		m_pipelines.clear();
 
 		// 공유 리소스 해제
-		m_screenMesh.reset();
-
 		m_staticVAO.reset();
 		m_skinnedVAO.reset();
-		m_screenVAO.reset();
-
-		m_linearClampSampler.reset();
-		m_nearestClampSampler.reset();
-		m_linearRepeatSampler.reset();
 	}
 
 	bool RenderManager::Resize(uint32 width, uint32 height)
@@ -197,37 +182,6 @@ namespace bdt
 	GLVertexArray* RenderManager::GetSkinnedVAO() const
 	{
 		return m_skinnedVAO.get();
-	}
-
-	GLVertexArray* RenderManager::GetScreenVAO() const
-	{
-		return m_screenVAO.get();
-	}
-
-	ScreenMeshPtr RenderManager::GetScreenMesh() const
-	{
-		return m_screenMesh;
-	}
-
-	GLSampler* RenderManager::GetLinearClampSampler() const
-	{
-		return m_linearClampSampler.get();
-	}
-
-	GLSampler* RenderManager::GetNearestClampSampler() const
-	{
-		return m_nearestClampSampler.get();
-	}
-
-	GLSampler* RenderManager::GetLinearRepeatSampler() const
-	{
-		return m_linearRepeatSampler.get();
-	}
-
-	void RenderManager::SetScreenVAOAttrib()
-	{
-		m_screenVAO->SetAttrib(0, 0, 3, GL_FLOAT, false, offsetof(GLScreenVertex, position));
-		m_screenVAO->SetAttrib(1, 0, 2, GL_FLOAT, false, offsetof(GLScreenVertex, texCoord));
 	}
 
 	void RenderManager::SetStaticVAOAttrib()

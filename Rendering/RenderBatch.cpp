@@ -17,4 +17,34 @@ namespace bdt
     {
         return m_material;
     }
+
+    uint32 RenderBatch::GetBaseInstance() const
+    {
+        return m_baseInstance;
+    }
+
+    void RenderBatch::SetBaseInstance(uint32 baseInstance)
+    {
+        m_baseInstance = baseInstance;
+    }
+
+    uint32 RenderBatch::GetShadowBaseInstance() const
+    {
+        return m_shadowBaseInstance;
+    }
+
+    void RenderBatch::SetShadowBaseInstance(uint32 baseInstance)
+    {
+        m_shadowBaseInstance = baseInstance;
+    }
+
+    uint32 RenderBatch::GetShadowInstanceCount() const
+    {
+        return m_shadowInstanceCount;
+    }
+
+    void RenderBatch::SetShadowInstanceCount(uint32 count)
+    {
+        m_shadowInstanceCount = count;
+    }
 }

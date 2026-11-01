@@ -13,8 +13,24 @@ namespace bdt
     RenderScreen::RenderScreen() = default;
     RenderScreen::~RenderScreen() = default;
 
+    RenderScreenUPtr RenderScreen::Create(uint32 width, uint32 height)
+    {
+        RenderScreenUPtr screen = RenderScreenUPtr(new RenderScreen());
+        if (!screen->Init(width, height)) return nullptr;
+        return screen;
+    }
+
     bool RenderScreen::Init(uint32 width, uint32 height)
     {
+        m_screenMesh = ScreenMesh::Create();
+        if (!m_screenMesh) return false;
+
+        m_screenVAO = GLVertexArray::Create();
+        if (!m_screenVAO) return false;
+
+        m_screenVAO->SetAttrib(0, 0, 3, GL_FLOAT, false, offsetof(GLScreenVertex, position));
+        m_screenVAO->SetAttrib(1, 0, 2, GL_FLOAT, false, offsetof(GLScreenVertex, texCoord));
+
         return Resize(width, height);
     }
 
@@ -22,16 +38,35 @@ namespace bdt
     {
         if (width == 0 || height == 0) return false;
         if (m_width == width && m_height == height) return true;
+
+        // 1. HDR Color Texture 생성
+        auto colorTexture = RenderTexture2D::Create(width, height, GL_RGBA16F);
+        if (!colorTexture) return false;
+
+        // 2. Framebuffer 생성
+        auto framebuffer = Framebuffer2D::Create(width, height);
+        if (!framebuffer) return false;
+
+        // 3. Color Attachment 연결
+        if (!framebuffer->AttachColor(0, colorTexture->GetTextureID()))
+            return false;
+
+        framebuffer->SetDrawBuffers(1);
+
+        // 4. 기존 리소스 교체
+        m_colorTexture = std::move(colorTexture);
+        m_framebuffer = std::move(framebuffer);
+
         m_width = width;
         m_height = height;
+
         return true;
     }
 
     void RenderScreen::Bind() const
     {
-        // 기본 프레임버퍼 바인딩
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, static_cast<GLsizei>(m_width), static_cast<GLsizei>(m_height));
+        m_framebuffer->Bind();
+        glViewport(0, 0, (GLsizei)m_width, (GLsizei)m_height);
     }
 
     void RenderScreen::Unbind() const
@@ -49,24 +84,24 @@ namespace bdt
         return m_height;
     }
 
-    void RenderScreen::Draw() const
+    RenderTexture2D* RenderScreen::GetColorTexture() const
     {
-        GLVertexArray* vao = BDT_RENDER.GetScreenVAO();
-        ScreenMeshPtr screenMesh = BDT_RENDER.GetScreenMesh();
-        if (!vao || !screenMesh) return;
+        return m_colorTexture.get();
+    }
 
-        const GLMesh* mesh = screenMesh->GetGLMesh();
+    void RenderScreen::ScreenBlit() const
+    {
+        const GLMesh* mesh = m_screenMesh->GetGLMesh();
         if (!mesh) return;
 
         const GLBuffer* vertexBuffer = mesh->GetVertexBuffer();
         const GLBuffer* indexBuffer = mesh->GetIndexBuffer();
-
         if (!vertexBuffer || !indexBuffer) return;
 
-        vao->SetVertexBuffer(*vertexBuffer, 0, sizeof(GLScreenVertex));
-        vao->SetIndexBuffer(*indexBuffer);
-
-        vao->Bind();
+        m_screenVAO->SetVertexBuffer(*vertexBuffer, 0, sizeof(GLScreenVertex));
+        m_screenVAO->SetIndexBuffer(*indexBuffer);
+        m_screenVAO->Bind();
+        
         glDrawElements
         (
             mesh->GetPrimitive(),

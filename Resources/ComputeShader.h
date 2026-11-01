@@ -21,6 +21,7 @@ namespace bdt
 		void Bind() const;
 		static void Unbind();
 		bool IsValid() const;
+		uint32 GetProgramID() const;
 
 	private:
 		ComputeShader();

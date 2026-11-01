@@ -1,12 +1,9 @@
 #pragma 
-#include <Resources/ResourceHandle.h>
 #include <Rendering/IRenderPass.h>
 
 namespace bdt
 {
 	BDT_CLASS_PTR(GraphicsShader)
-	BDT_CLASS_PTR(StaticRenderQueue)
-	BDT_CLASS_PTR(SkinnedRenderQueue)
 	BDT_CLASS_PTR(MySimpleGeometryPass)
 
 	class MySimpleGeometryPass : public IRenderPass
@@ -21,15 +18,11 @@ namespace bdt
 		virtual void Shutdown() override;
 
 	private:
-		void SubmitObject(const RenderObject& object);
-
-	private:
 		MySimpleGeometryPass();
 		virtual bool Init() override;
 
+		GLSamplerUPtr m_materialSampler;
 		ResourceHandle<GraphicsShader> m_geometryShaderStatic;
 		ResourceHandle<GraphicsShader> m_geometryShaderSkinned;
-		StaticRenderQueueUPtr m_staticQueue{ nullptr };
-		SkinnedRenderQueueUPtr m_skinnedQueue{ nullptr };
 	};
 }

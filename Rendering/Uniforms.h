@@ -4,8 +4,6 @@
 
 namespace bdt
 {
-	// GLSL의 layout(std140) 블록도 아래와 같은 타입과 순서로 선언한다.
-	// vec4의 미사용 w는 패딩이다. 텍스처 핸들은 별도로 바인딩한다.
 	struct alignas(BDT_STD140_BASE_ALIGNMENT) MaterialData
 	{
 		vec4 albedoFactor      { 1.0f };
@@ -17,6 +15,8 @@ namespace bdt
 		uint32 textureFlags    { 0 };
 		uint32 pad0[3]		   { 0 };
 	};
+	static_assert(offsetof(MaterialData, textureFlags) == 48);
+	static_assert(sizeof(MaterialData) == 64);
 
 	struct alignas(BDT_STD140_BASE_ALIGNMENT) CameraData
 	{
@@ -29,5 +29,12 @@ namespace bdt
 		float nearPlane     { 0.1f };
 		float farPlane      { 1000.0f };
 		vec2 viewportSize   { 1.0f, 1.0f }; // 프레임버퍼 픽셀 크기
+	};
+
+	struct alignas(BDT_STD140_BASE_ALIGNMENT) SkyboxData
+	{
+		mat4 invProjection{ 1.0f };
+		mat4 invViewRotation{ 1.0f };
+		float intensity{ 1.0f };
 	};
 }

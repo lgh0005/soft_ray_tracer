@@ -1,27 +1,27 @@
 #pragma once
-#include <Core/Defines.h>
-#include <Core/Types.h>
 #include <Rendering/IRenderTarget.h>
 #include "Enums.h"
 
 namespace bdt
 {
-    BDT_CLASS_PTR(MyGBuffer)
+    BDT_CLASS_PTR(MySimpleGBuffer)
     BDT_CLASS_PTR(Framebuffer2D)
     BDT_CLASS_PTR(RenderTexture2D)
+    BDT_CLASS_PTR(GLSampler)
 
-    class MyGBuffer : public IRenderTarget
+    class MySimpleGBuffer : public IRenderTarget
     {
-        BDT_DISABLE_COPY(MyGBuffer)
-        BDT_DISABLE_MOVE(MyGBuffer)
+        BDT_DISABLE_COPY(MySimpleGBuffer)
+        BDT_DISABLE_MOVE(MySimpleGBuffer)
 
     public:
-        ~MyGBuffer() override;
-        static MyGBufferUPtr Create(uint32 width, uint32 height);
+        ~MySimpleGBuffer() override;
+        static MySimpleGBufferUPtr Create(uint32 width, uint32 height);
 
         virtual bool Resize(uint32 width, uint32 height) override;
         virtual void Bind() const override;
         virtual void Unbind() const override;
+        void Clear() const;
 
         virtual uint32 GetWidth() const override;
         virtual uint32 GetHeight() const override;
@@ -29,10 +29,11 @@ namespace bdt
         void BindTextures() const;
         static void UnbindTextures();
         RenderTexture2D* GetTexture(EGBufferTextureSlot slot) const;
+        GLSampler* GetSampler() const;
         bool IsValid() const;
 
     private:
-        MyGBuffer();
+        MySimpleGBuffer();
         bool Init(uint32 width, uint32 height) override;
 
         // OpenGL GPU 제한 인자
@@ -43,6 +44,7 @@ namespace bdt
         uint32 m_width{ 0 };
         uint32 m_height{ 0 };
         Framebuffer2DUPtr m_framebuffer{ nullptr };
+        GLSamplerUPtr m_sampler{ nullptr };
         Array<RenderTexture2DUPtr, (usize)EGBufferTextureSlot::Count> m_textures{};
     };
 }

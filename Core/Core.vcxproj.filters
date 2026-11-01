@@ -103,6 +103,9 @@
     <ClCompile Include="GLBuffer.cpp">
       <Filter>소스 파일\OpenGL\Objects\Buffers</Filter>
     </ClCompile>
+    <ClCompile Include="GLStorageBuffer.cpp">
+      <Filter>소스 파일\OpenGL\Objects\Buffers</Filter>
+    </ClCompile>
     <ClCompile Include="GLVertexArray.cpp">
       <Filter>소스 파일\OpenGL\Objects\Buffers</Filter>
     </ClCompile>
@@ -217,6 +220,9 @@
       <Filter>소스 파일\OpenGL\Objects\Meshes</Filter>
     </ClInclude>
     <ClInclude Include="GLBuffer.h">
+      <Filter>소스 파일\OpenGL\Objects\Buffers</Filter>
+    </ClInclude>
+    <ClInclude Include="GLStorageBuffer.h">
       <Filter>소스 파일\OpenGL\Objects\Buffers</Filter>
     </ClInclude>
     <ClInclude Include="GLVertexArray.h">

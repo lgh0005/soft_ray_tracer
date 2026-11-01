@@ -7,7 +7,8 @@ namespace bdt
 	enum class EInstanceBinding : uint8
 	{
 		Property,
-		Bone
+		Bone,
+		ShadowProperty = 4
 	};
 
 	// UBO Binding Point
@@ -15,7 +16,8 @@ namespace bdt
 	{
 		Camera,
 		Material,
-		Light
+		Light,
+		ScreenSpace
 	};
 
 	// SSBO Bidning Point
@@ -23,7 +25,8 @@ namespace bdt
 	{
 		Property,
 		Bone,
-		Light
+		Light,
+		Shadow
 	};
 
 	// Default Geometry Buffer primitives
@@ -35,5 +38,13 @@ namespace bdt
 		Material,
 		DepthStencil,
 		Count
+	};
+
+	// Simple Light Types
+	enum class ELightType : uint8
+	{
+		Directional,
+		Point,
+		Spot
 	};
 }

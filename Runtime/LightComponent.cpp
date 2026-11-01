@@ -3,9 +3,7 @@
 
 namespace bdt
 {
-    LightComponent::LightComponent(Actor* owner)
-        : Super(owner)
-    {}
+    LightComponent::LightComponent(Actor* owner) : Super(owner) { }
 
     LightComponent::~LightComponent() = default;
 
@@ -28,6 +26,54 @@ namespace bdt
     {
         m_intensity = std::max(intensity, 0.0f);
     }
+
+    float LightComponent::GetShadowNearPlane() const
+    {
+        return m_shadowNearPlane;
+    }
+
+    float LightComponent::GetShadowFarPlane() const
+    {
+        return m_shadowFarPlane;
+    }
+
+    bool LightComponent::SetShadowNearPlane(float nearPlane)
+    {
+        return SetShadowClipPlanes(nearPlane, m_shadowFarPlane);
+    }
+
+    bool LightComponent::SetShadowFarPlane(float farPlane)
+    {
+        return SetShadowClipPlanes(m_shadowNearPlane, farPlane);
+    }
+
+    bool LightComponent::SetShadowClipPlanes(float nearPlane, float farPlane)
+    {
+        if (nearPlane <= 0.0f || farPlane <= nearPlane) return false;
+        m_shadowNearPlane = nearPlane;
+        m_shadowFarPlane = farPlane;
+        return true;
+    }
+
+    bool LightComponent::IsShadowEnabled() const
+    {
+        return m_castShadow;
+    }
+
+    void LightComponent::SetShadowEnabled(bool enabled)
+    {
+        m_castShadow = enabled;
+    }
+
+    //void LightComponent::GetLightViewMatrix(mat4& view, float backwardOffset) const
+    //{
+    //    const vec3 position = GetPosition();
+    //    const vec3 direction = GetRotation() * vec3(0.0f, -1.0f, 0.0f);
+    //    const vec3 forward = glm::normalize(direction);
+    //    const vec3 up = glm::abs(forward.y) < 0.999f ? vec3(0.0f, 1.0f, 0.0f) : vec3(1.0f, 0.0f, 0.0f);
+    //    const vec3 eye = position - forward * backwardOffset;
+    //    view = glm::lookAt(eye, eye + forward, up);
+    //}
 
     vec3 LightComponent::GetAttenuationCoeff(float distance)
     {

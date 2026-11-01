@@ -47,4 +47,9 @@ namespace bdt
 
         return data;
     }
+
+    mat4 PointLight::GetViewProjectionMatrix() const
+    {
+        return mat4(1.0f);
+    }
 }

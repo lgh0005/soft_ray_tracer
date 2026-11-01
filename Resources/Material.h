@@ -23,6 +23,10 @@ namespace bdt
         const MaterialDesc& GetDesc() const;
         const MaterialTextures& GetTextures() const;
 
+        // TODO : 몇 가지 팩터들을 추가해야 함.
+        void SetRoughnessFactor(float factor);
+        void SetEmissionStrength(float strength);
+
     private:
         Material
         (

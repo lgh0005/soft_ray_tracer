@@ -10,6 +10,7 @@ namespace bdt
 	BDT_CLASS_PTR(PointLightActor)
 	BDT_CLASS_PTR(SpotLightActor)
 	BDT_CLASS_PTR(DirectionalLightActor)
+	BDT_CLASS_PTR(ImageBasedLight)
 	BDT_CLASS_PTR(World)
 		
 	class World
@@ -55,8 +56,17 @@ namespace bdt
 		template<typename... TArgs>
 		DirectionalLightActor* AddDirectionalLightActor(TArgs&&... args);
 
+		void SetEnvironmentImage(const String& path);
+		void CreateImageBasedLight();
+
 	protected:
+
+		// Main Camera
 		CameraActorUPtr m_mainCamera{ nullptr };
+
+		// IBL
+		ResourceHandle<Image2D> m_environmentImage;
+		ImageBasedLightUPtr m_imageBasedLight;
 
 		// Actor 소유권
 		List<StaticModelActorUPtr> m_staticModelActors;

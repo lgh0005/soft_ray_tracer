@@ -1,14 +1,15 @@
 #pragma once
 #include <Rendering/IRenderPipeline.h>
-#include "MySimpleBus.h"
-#include "MySimpleGeometryPass.h"
-#include "MySimpleOutputPass.h"
+#include <Resources/ResourceHandle.h>
 
 namespace bdt
 {
 	BDT_CLASS_PTR(MySimpleBus)
+	BDT_CLASS_PTR(MySimpleShadowPass)
 	BDT_CLASS_PTR(MySimpleGeometryPass)
-	BDT_CLASS_PTR(MySimpleOutputPass)
+	BDT_CLASS_PTR(MySimpleDeferredShadingPass)
+	BDT_CLASS_PTR(MySimpleSkyboxPass)
+	BDT_CLASS_PTR(MySimplePostProcessingPass)
 	BDT_CLASS_PTR(MySimplePipeline)
 
 	class MySimplePipeline : public IRenderPipeline
@@ -16,7 +17,7 @@ namespace bdt
 		BDT_DISABLE_COPY(MySimplePipeline)
 		BDT_DISABLE_MOVE(MySimplePipeline)
 		using Super = IRenderPipeline;
-
+		
 	public:
 		virtual ~MySimplePipeline() override;
 		static MySimplePipelineUPtr Create();
@@ -29,7 +30,10 @@ namespace bdt
 		virtual bool Init() override;
 
 		MySimpleBusUPtr m_bus;
+		MySimpleShadowPassUPtr m_shadowPass;
 		MySimpleGeometryPassUPtr m_geometryPass;
-		MySimpleOutputPassUPtr m_outputPass;
+		MySimpleDeferredShadingPassUPtr m_deferredShadingPass;
+		MySimpleSkyboxPassUPtr m_skyboxPass;
+		MySimplePostProcessingPassUPtr m_postProcessingPass;
 	};
 }

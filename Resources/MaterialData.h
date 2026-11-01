@@ -13,6 +13,8 @@ namespace bdt
         String roughness;
         String emission;
         String height;
+        String metallic;
+        String specular;
     };
 
     struct MaterialTextures
@@ -23,6 +25,8 @@ namespace bdt
         ResourceHandle<Image2D> roughness;
         ResourceHandle<Image2D> emission;
         ResourceHandle<Image2D> height;
+        ResourceHandle<Image2D> metallic;
+        ResourceHandle<Image2D> specular;
     };
 
     struct MaterialDesc

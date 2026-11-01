@@ -48,6 +48,8 @@ namespace bdt
             BindTexture(textures.roughness, EMaterialTextureSlot::Roughness, data);
             BindTexture(textures.emission, EMaterialTextureSlot::Emission, data);
             BindTexture(textures.height, EMaterialTextureSlot::Height, data);
+            BindTexture(textures.metallic, EMaterialTextureSlot::Metallic, data);
+            BindTexture(textures.specular, EMaterialTextureSlot::Specular, data);
         }
 
         // Material UBO 데이터 갱신

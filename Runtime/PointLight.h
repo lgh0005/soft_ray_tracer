@@ -12,10 +12,12 @@ namespace bdt
         virtual ~PointLight() override;
 
     public:
-        LightData GetLightData() const override;
-        float GetRange() const;
+        virtual LightData GetLightData() const override;
+		virtual mat4 GetViewProjectionMatrix() const override;
+
         vec3 GetAttenuation() const;
         void SetRange(float range);
+        float GetRange() const;
 
     private:
         float m_range{ 10.0f };

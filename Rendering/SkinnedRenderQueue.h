@@ -1,5 +1,5 @@
 #pragma once
-#include "InstanceBuffer.h"
+#include <Core/GLStorageBuffer.h>
 #include "RenderMaterial.h"
 #include "Instances.h"
 
@@ -14,9 +14,7 @@ namespace bdt
     public:
         ~SkinnedRenderQueue();
         static SkinnedRenderQueueUPtr Create();
-
         void Clear();
-        void Execute(GraphicsShader* shader);
         void Add
         (
             Mesh* mesh,
@@ -25,6 +23,13 @@ namespace bdt
             const List<mat4>& bones
         );
 
+    public:
+        bool Prepare();
+        void Execute(GraphicsShader* shader);
+        
+        bool PrepareShadow(const List<ShadowData>& shadows);
+        void ExecuteShadow(GraphicsShader* shader);
+
     private:
         SkinnedRenderQueue();
         bool Init();
@@ -32,7 +37,14 @@ namespace bdt
         Dictionary<Mesh*, Dictionary<Material*, SkinnedRenderBatch>> m_batches;
         RenderMaterial m_renderMaterial;
 
-        InstanceBufferUPtr m_propertyBuffer;
-        InstanceBufferUPtr m_boneBuffer;
+        // Geometry Instance
+        List<SkinnedInstanceProperty> m_properties;
+        List<mat4> m_boneMatrices;
+        GLStorageBufferUPtr m_propertyBuffer;
+        GLStorageBufferUPtr m_boneBuffer;
+
+        // Shadow Instance
+        List<ShadowInstanceProperty> m_shadowProperties;
+        GLStorageBufferUPtr m_shadowPropertyBuffer;
     };
 }

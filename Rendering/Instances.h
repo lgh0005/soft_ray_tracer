@@ -20,6 +20,13 @@ namespace bdt
 		uint32 pad0        { 0 };
 	};
 
+	// Shadow Pass에서 렌더링할 메시 인스턴스와 광원의 조합
+	struct alignas(BDT_STD430_BASE_ALIGNMENT) ShadowInstanceProperty
+	{
+		uint32 instanceIndex{ 0 };  // 기존 Static 또는 Skinned Instance SSBO의 인덱스
+		uint32 shadowIndex{ 0 };    // ShadowData SSBO의 인덱스
+	};
+
 	struct alignas(BDT_STD430_BASE_ALIGNMENT) LightData
 	{
 		// 위치와 방향은 월드 공간 기준이다. direction.xyz는 단위 벡터다.
@@ -36,5 +43,15 @@ namespace bdt
 		float attenuationConstant{ 1.0f };
 		float attenuationLinear{ 0.0f };
 		float attenuationQuadratic{ 0.0f };
+
+		int32 shadowIndex{ -1 }; // 그림자 맵 인덱스, -1이면 그림자 없음
+	};
+
+	struct alignas(BDT_STD430_BASE_ALIGNMENT) ShadowData
+	{
+		mat4 lightViewProjection{ 1.0f };
+		uint32 lightIndex{ 0 };
+		uint32 shadowMapIndex{ 0 };
+		vec2 pad0{ 0.0f, 0.0f };
 	};
 }

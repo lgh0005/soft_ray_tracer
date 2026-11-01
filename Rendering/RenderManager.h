@@ -30,17 +30,11 @@ namespace bdt
 		GLint GetMaxDrawBuffers() const;
 		GLVertexArray* GetStaticVAO() const;
 		GLVertexArray* GetSkinnedVAO() const;
-		GLVertexArray* GetScreenVAO() const;
-		ScreenMeshPtr GetScreenMesh() const;
-		GLSampler* GetLinearClampSampler() const;
-		GLSampler* GetNearestClampSampler() const;
-		GLSampler* GetLinearRepeatSampler() const;
 
 	private:
 		void ApplyPipelineChange();
 		void SetStaticVAOAttrib();
 		void SetSkinnedVAOAttrib();
-		void SetScreenVAOAttrib();
 
 	private:
 
@@ -57,15 +51,6 @@ namespace bdt
 		// 공유 VAO
 		GLVertexArrayUPtr m_staticVAO{ nullptr };
 		GLVertexArrayUPtr m_skinnedVAO{ nullptr };
-		GLVertexArrayUPtr m_screenVAO{ nullptr };
-
-		// 공유 화면 메시
-		ScreenMeshPtr m_screenMesh{ nullptr };
-
-		// 공유 Sampler
-		GLSamplerUPtr m_linearClampSampler{ nullptr };
-		GLSamplerUPtr m_nearestClampSampler{ nullptr };
-		GLSamplerUPtr m_linearRepeatSampler{ nullptr };
 	};
 }
 

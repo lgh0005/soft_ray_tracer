@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -180,7 +180,7 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     <ClInclude Include="Enums.h" />
     <ClInclude Include="Framebuffer2D.h" />
     <ClInclude Include="FramebufferCube.h" />
-    <ClInclude Include="InstanceBuffer.h" />
+    <ClInclude Include="ImageBasedLight.h" />
     <ClInclude Include="IRenderBus.h" />
     <ClInclude Include="IRenderPass.h" />
     <ClInclude Include="IRenderPipeline.h" />
@@ -193,6 +193,7 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     <ClInclude Include="RenderScene.h" />
     <ClInclude Include="RenderScreen.h" />
     <ClInclude Include="RenderTexture2D.h" />
+    <ClInclude Include="RenderTextureArray2D.h" />
     <ClInclude Include="RenderTextureCube.h" />
     <ClInclude Include="RenderViewport.h" />
     <ClInclude Include="SkinnedRenderBatch.h" />
@@ -206,7 +207,7 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
   <ItemGroup>
     <ClCompile Include="Framebuffer2D.cpp" />
     <ClCompile Include="FramebufferCube.cpp" />
-    <ClCompile Include="InstanceBuffer.cpp" />
+    <ClCompile Include="ImageBasedLight.cpp" />
     <ClCompile Include="IRenderBus.cpp" />
     <ClCompile Include="IRenderPass.cpp" />
     <ClCompile Include="IRenderPipeline.cpp" />
@@ -224,6 +225,7 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     <ClCompile Include="RenderScene.cpp" />
     <ClCompile Include="RenderScreen.cpp" />
     <ClCompile Include="RenderTexture2D.cpp" />
+    <ClCompile Include="RenderTextureArray2D.cpp" />
     <ClCompile Include="RenderTextureCube.cpp" />
     <ClCompile Include="RenderViewport.cpp" />
     <ClCompile Include="SkinnedRenderBatch.cpp" />
