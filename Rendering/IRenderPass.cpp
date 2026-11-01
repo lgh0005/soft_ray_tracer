@@ -3,5 +3,5 @@
 
 namespace bdt
 {
-
+	IRenderPass::~IRenderPass() = default;
 }

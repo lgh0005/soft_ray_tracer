@@ -5,9 +5,12 @@
 
 namespace bdt
 {
+	BDT_CLASS_PTR(RTSecondaryRayPass)
+
 	class RTSecondaryRayPass : public IRenderPass
 	{
 	public:
+		static RTSecondaryRayPassUPtr Create();
 		virtual bool Init() override;
 		virtual void Execute(IRenderBus& bus) override;
 		virtual void Shutdown() override;

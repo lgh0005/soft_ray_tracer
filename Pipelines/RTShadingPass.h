@@ -1,15 +1,24 @@
 #pragma once
-#include <Core/Defines.h>
-#include <Core/Types.h>
 #include <Rendering/IRenderPass.h>
 
 namespace bdt
 {
-	class RTShadingPass : public IRenderPass
-	{
-	public:
-		virtual bool Init() override;
-		virtual void Execute(IRenderBus& bus) override;
-		virtual void Shutdown() override;
-	};
+    BDT_CLASS_PTR(ComputeShader)
+    BDT_CLASS_PTR(RTShadingPass)
+
+    class RTShadingPass : public IRenderPass
+    {
+    public:
+        virtual ~RTShadingPass() override;
+        static RTShadingPassUPtr Create();
+
+        virtual void Execute(IRenderBus& bus) override;
+        virtual void Shutdown() override;
+
+    private:
+        RTShadingPass();
+        virtual bool Init() override;
+
+        ResourceHandle<ComputeShader> m_shadingShader;
+    };
 }

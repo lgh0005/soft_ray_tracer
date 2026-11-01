@@ -35,14 +35,18 @@ namespace bdt
 		// 5. ResourceManager
 		// 별도의 Init()이 없으므로 초기화하지 않음
 
-		// 6. RenderManager
+		// 6. InstanceManager
+		if (!BDT_INSTANCE.Init())
+			return false;
+
+		// 7. RenderManager
 		if (!BDT_RENDER.Init())
 			return false;
 
-		// 7. WorldManager
+		// 8. WorldManager
 		// 별도의 Init()이 없으므로 초기화하지 않음
 
-		// 8. GUIManager
+		// 9. GUIManager
 		BDT_GUI.Init();
 
 		m_appInitialized = true;
@@ -129,19 +133,22 @@ namespace bdt
 		// 4. RenderManager
 		BDT_RENDER.Shutdown();
 
-		// 5. ResourceManager
+		// 5. InstanceManager
+		BDT_INSTANCE.Shutdown();
+
+		// 6. ResourceManager
 		BDT_RESOURCE.Clear();
 
-		// 6. InputManager
+		// 7. InputManager
 		BDT_INPUT.Shutdown();
 
-		// 7. TimeManager
+		// 8. TimeManager
 		BDT_TIME.Shutdown();
 
 		// [디버그] OpenGL 컨텍스트가 살아 있을 때 GPU 타이머 정리
 		BDT_GPU_PROFILE_CLEAR();
 
-		// 8. WindowManager
+		// 9. WindowManager
 		BDT_WINDOW.Shutdown();
 
 		// [디버그] 다른 도구의 정리 로그 출력 후 로거 정리
@@ -186,8 +193,10 @@ namespace bdt
 		if (!world || !pipeline)
 			return;
 
-		// 두 Manager에 전환 예약
+		// 두 Manager에 전환 예약 및 기하 정보 초기화
 		BDT_WORLD.ChangeWorld(worldTag);
 		BDT_RENDER.ChangePipeline(pipelineTag);
+		BDT_INSTANCE.ClearInstances();
+		BDT_INSTANCE.ClearGeometry();
 	}
 }

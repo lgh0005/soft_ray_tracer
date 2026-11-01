@@ -27,6 +27,21 @@ namespace bdt
         return m_glMesh.get();
     }
 
+	uint32 SkinnedMesh::GetTriangleCount() const
+	{
+		return static_cast<uint32>(m_indices.size() / 3);
+	}
+
+	Array<uint32, 3> SkinnedMesh::GetTriangle(uint32 index) const
+	{
+		Array<uint32, 3> triangle{ 0, 0, 0 };
+		if (index >= GetTriangleCount()) return triangle;
+		triangle[0] = m_indices[index * 3 + 0];
+		triangle[1] = m_indices[index * 3 + 1];
+		triangle[2] = m_indices[index * 3 + 2];
+		return triangle;
+	}
+
     const List<GLSkinnedVertex>& SkinnedMesh::GetVertices() const
     {
         return m_vertices;

@@ -15,10 +15,12 @@ namespace bdt
 
 	void RTBruteForceGBuffer::Bind() const
 	{
+
 	}
 
 	void RTBruteForceGBuffer::Unbind() const
 	{
+
 	}
 
 	uint32 RTBruteForceGBuffer::GetWidth() const

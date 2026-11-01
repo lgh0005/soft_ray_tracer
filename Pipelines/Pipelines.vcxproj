@@ -177,6 +177,7 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="MYRTSpatialOptimized.h" />
     <ClInclude Include="MySimpleGBuffer.h" />
     <ClInclude Include="MyRTBruteForce.h" />
     <ClInclude Include="RTSpatialGBuffer.h" />
@@ -199,12 +200,14 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     <ClInclude Include="RTBruteForceBus.h" />
     <ClInclude Include="RTBruteForceGBuffer.h" />
     <ClInclude Include="RTBruteForceOutputPass.h" />
+    <ClInclude Include="RTSkinningPass.h" />
     <ClInclude Include="RTClosestHitPass.h" />
     <ClInclude Include="RTRayGenerationPass.h" />
     <ClInclude Include="RTSecondaryRayPass.h" />
     <ClInclude Include="RTShadingPass.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="MYRTSpatialOptimized.cpp" />
     <ClCompile Include="MySimpleGBuffer.cpp" />
     <ClCompile Include="MyRTBruteForce.cpp" />
     <ClCompile Include="RTSpatialGBuffer.cpp" />
@@ -230,6 +233,7 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     <ClCompile Include="RTBruteForceBus.cpp" />
     <ClCompile Include="RTBruteForceGBuffer.cpp" />
     <ClCompile Include="RTBruteForceOutputPass.cpp" />
+    <ClCompile Include="RTSkinningPass.cpp" />
     <ClCompile Include="RTClosestHitPass.cpp" />
     <ClCompile Include="RTRayGenerationPass.cpp" />
     <ClCompile Include="RTSecondaryRayPass.cpp" />

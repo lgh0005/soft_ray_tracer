@@ -15,7 +15,9 @@ namespace bdt
     public:
         ~ScreenMesh() override;
         static ScreenMeshPtr Create();
-        const GLMesh* GetGLMesh() const override;
+        virtual const GLMesh* GetGLMesh() const override;
+        virtual uint32 GetTriangleCount() const override;
+        virtual Array<uint32, 3> GetTriangle(uint32 index) const override;
 
     private:
         ScreenMesh();

@@ -1,6 +1,5 @@
 #pragma once
 #include <Rendering/IRenderPipeline.h>
-#include <Resources/ResourceHandle.h>
 
 namespace bdt
 {
@@ -29,7 +28,10 @@ namespace bdt
 		MySimplePipeline();
 		virtual bool Init() override;
 
+		// Render Bus
 		MySimpleBusUPtr m_bus;
+
+		// Render Passes
 		MySimpleShadowPassUPtr m_shadowPass;
 		MySimpleGeometryPassUPtr m_geometryPass;
 		MySimpleDeferredShadingPassUPtr m_deferredShadingPass;

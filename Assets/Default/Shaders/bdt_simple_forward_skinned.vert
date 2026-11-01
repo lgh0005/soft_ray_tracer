@@ -12,6 +12,7 @@ layout(std140, binding = 0) uniform CameraBuffer
     mat4 view;
     mat4 projection;
     mat4 viewProjection;
+    mat4 inverseViewProjection;
     vec4 cameraPosition;
     float nearPlane;
     float farPlane;

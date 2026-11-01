@@ -23,14 +23,11 @@
     <Filter Include="소스 파일\Boundings">
       <UniqueIdentifier>{070e3e51-6acc-4b87-8ef8-69403dc4b394}</UniqueIdentifier>
     </Filter>
-    <Filter Include="소스 파일\Rays">
-      <UniqueIdentifier>{5a974e92-9bfc-4f7d-afef-f10a4cea6c87}</UniqueIdentifier>
-    </Filter>
     <Filter Include="소스 파일\Managers">
       <UniqueIdentifier>{3b8f9b1c-958f-48cc-81a8-ff13ea9313bb}</UniqueIdentifier>
     </Filter>
-    <Filter Include="소스 파일\Geometry">
-      <UniqueIdentifier>{15823924-00df-4631-b754-9d1536c1646c}</UniqueIdentifier>
+    <Filter Include="소스 파일\Storages">
+      <UniqueIdentifier>{ba8f6f2b-2f40-4d89-baea-6f1483947d97}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -55,7 +52,7 @@
     <ClInclude Include="InstanceManager.h">
       <Filter>소스 파일\Managers</Filter>
     </ClInclude>
-    <ClInclude Include="RayTracingData.h">
+    <ClInclude Include="RTData.h">
       <Filter>소스 파일\Headers</Filter>
     </ClInclude>
     <ClInclude Include="Octree.h">
@@ -67,11 +64,20 @@
     <ClInclude Include="BSPTree.h">
       <Filter>소스 파일\Accelerates\Spatial</Filter>
     </ClInclude>
-    <ClInclude Include="RayTracingUniforms.h">
+    <ClInclude Include="RTUniforms.h">
       <Filter>소스 파일\Headers</Filter>
     </ClInclude>
     <ClInclude Include="RTGeometry.h">
-      <Filter>소스 파일\Geometry</Filter>
+      <Filter>소스 파일\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Enums.h">
+      <Filter>소스 파일\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="RTGeometryStorage.h">
+      <Filter>소스 파일\Storages</Filter>
+    </ClInclude>
+    <ClInclude Include="RTInstanceStorage.h">
+      <Filter>소스 파일\Storages</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -101,6 +107,12 @@
     </ClCompile>
     <ClCompile Include="BSPTree.cpp">
       <Filter>소스 파일\Accelerates\Spatial</Filter>
+    </ClCompile>
+    <ClCompile Include="RTGeometryStorage.cpp">
+      <Filter>소스 파일\Storages</Filter>
+    </ClCompile>
+    <ClCompile Include="RTInstanceStorage.cpp">
+      <Filter>소스 파일\Storages</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

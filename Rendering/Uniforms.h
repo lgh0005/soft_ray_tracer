@@ -15,16 +15,15 @@ namespace bdt
 		uint32 textureFlags    { 0 };
 		uint32 pad0[3]		   { 0 };
 	};
-	static_assert(offsetof(MaterialData, textureFlags) == 48);
-	static_assert(sizeof(MaterialData) == 64);
 
 	struct alignas(BDT_STD140_BASE_ALIGNMENT) CameraData
 	{
 		// GLSL 기본 column-major 기준. viewProjection = projection * view.
-		mat4 view           { 1.0f };
-		mat4 projection     { 1.0f };
-		mat4 viewProjection { 1.0f };
-		vec4 position       { 0.0f, 0.0f, 0.0f, 1.0f }; // 월드 공간 카메라 위치
+		mat4 view				   { 1.0f };
+		mat4 projection			   { 1.0f };
+		mat4 viewProjection        { 1.0f };
+		mat4 inverseViewProjection { 1.0f };
+		vec4 position              { 0.0f, 0.0f, 0.0f, 1.0f }; // 월드 공간 카메라 위치
 
 		float nearPlane     { 0.1f };
 		float farPlane      { 1000.0f };

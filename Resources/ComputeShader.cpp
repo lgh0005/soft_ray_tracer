@@ -44,4 +44,11 @@ namespace bdt
     {
         return m_program ? m_program->GetProgramID() : 0;
     }
+
+    void ComputeShader::Dispatch(GLuint groupX, GLuint groupY, GLuint groupZ) const
+    {
+        if (!IsValid()) return;
+        m_program->Dispatch(groupX, groupY, groupZ);
+    }
+
 }

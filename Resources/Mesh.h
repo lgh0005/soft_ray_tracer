@@ -13,6 +13,8 @@ namespace bdt
 	public:
 		virtual ~Mesh();
 		virtual const GLMesh* GetGLMesh() const = 0;
+		virtual uint32 GetTriangleCount() const = 0;
+		virtual Array<uint32, 3> GetTriangle(uint32 index) const = 0;
 		bool IsValid() const;
 
 	protected:

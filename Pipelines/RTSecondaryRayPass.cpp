@@ -3,6 +3,13 @@
 
 namespace bdt
 {
+	RTSecondaryRayPassUPtr RTSecondaryRayPass::Create()
+	{
+		RTSecondaryRayPassUPtr result(new RTSecondaryRayPass());
+		if (!result->Init()) return nullptr;
+		return result;
+	}
+
 	bool RTSecondaryRayPass::Init()
 	{
 		return false;

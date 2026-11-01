@@ -22,6 +22,7 @@ namespace bdt
 		static void Unbind();
 		bool IsValid() const;
 		uint32 GetProgramID() const;
+		void Dispatch(GLuint groupX, GLuint groupY = 1, GLuint groupZ = 1) const;
 
 	private:
 		ComputeShader();

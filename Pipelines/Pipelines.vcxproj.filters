@@ -32,11 +32,32 @@
     <Filter Include="소스 파일\Pipelines\MySimpleRasterized\RenderPasses">
       <UniqueIdentifier>{e6385eed-f103-4284-8668-913e746a17f7}</UniqueIdentifier>
     </Filter>
-    <Filter Include="소스 파일\Pipelines\MyRTBruteForce\RenderBus">
-      <UniqueIdentifier>{54ce60e5-2b85-42cf-86c7-892637f2f238}</UniqueIdentifier>
+    <Filter Include="소스 파일\Pipelines\MyRTBruteForce\ComputePasses">
+      <UniqueIdentifier>{f558fe46-1678-4f53-b383-0ede840b04dc}</UniqueIdentifier>
     </Filter>
     <Filter Include="소스 파일\Pipelines\MyRTBruteForce\RenderPasses">
       <UniqueIdentifier>{36a6921b-9778-4f8d-a68f-b447f733f204}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Pipelines\MyRTBruteForce\RenderBus">
+      <UniqueIdentifier>{54ce60e5-2b85-42cf-86c7-892637f2f238}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Pipelines\MyRTBVHOptimized\RenderPasses">
+      <UniqueIdentifier>{20686d09-e739-4cc6-8503-88256a8f7dea}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Pipelines\MyRTBVHOptimized\RenderBus">
+      <UniqueIdentifier>{4307e94d-1994-43fd-90e6-209db9497743}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Pipelines\MyRTBVHOptimized\ComputePasses">
+      <UniqueIdentifier>{5a9d1230-3b1e-4900-9b24-ed0a3a691241}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Pipelines\MyRTSpatialOptimized\ComputePasses">
+      <UniqueIdentifier>{796930b2-448f-4b6a-9b5b-97e0d1abe706}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Pipelines\MyRTSpatialOptimized\RenderPasses">
+      <UniqueIdentifier>{b0706609-2d44-4f90-91d8-70435051093d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Pipelines\MyRTSpatialOptimized\RenderBus">
+      <UniqueIdentifier>{9db7d513-89fe-419d-9dec-d2ebb2fb78e9}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -79,23 +100,41 @@
     <ClCompile Include="RTBruteForceBus.cpp">
       <Filter>소스 파일\Pipelines\MyRTBruteForce\RenderBus</Filter>
     </ClCompile>
-    <ClCompile Include="RTRayGenerationPass.cpp">
-      <Filter>소스 파일\Pipelines\MyRTBruteForce\RenderPasses</Filter>
-    </ClCompile>
-    <ClCompile Include="RTClosestHitPass.cpp">
-      <Filter>소스 파일\Pipelines\MyRTBruteForce\RenderPasses</Filter>
-    </ClCompile>
-    <ClCompile Include="RTSecondaryRayPass.cpp">
-      <Filter>소스 파일\Pipelines\MyRTBruteForce\RenderPasses</Filter>
-    </ClCompile>
-    <ClCompile Include="RTShadingPass.cpp">
-      <Filter>소스 파일\Pipelines\MyRTBruteForce\RenderPasses</Filter>
-    </ClCompile>
     <ClCompile Include="RTBruteForceGBuffer.cpp">
       <Filter>소스 파일\Pipelines\MyRTBruteForce\RenderBus</Filter>
     </ClCompile>
     <ClCompile Include="RTBruteForceOutputPass.cpp">
       <Filter>소스 파일\Pipelines\MyRTBruteForce\RenderPasses</Filter>
+    </ClCompile>
+    <ClCompile Include="RTSkinningPass.cpp">
+      <Filter>소스 파일\Pipelines\MyRTBruteForce\ComputePasses</Filter>
+    </ClCompile>
+    <ClCompile Include="RTClosestHitPass.cpp">
+      <Filter>소스 파일\Pipelines\MyRTBruteForce\ComputePasses</Filter>
+    </ClCompile>
+    <ClCompile Include="RTSecondaryRayPass.cpp">
+      <Filter>소스 파일\Pipelines\MyRTBruteForce\ComputePasses</Filter>
+    </ClCompile>
+    <ClCompile Include="RTSpatialBus.cpp">
+      <Filter>소스 파일\Pipelines\MyRTSpatialOptimized\RenderBus</Filter>
+    </ClCompile>
+    <ClCompile Include="RTSpatialGBuffer.cpp">
+      <Filter>소스 파일\Pipelines\MyRTSpatialOptimized\RenderBus</Filter>
+    </ClCompile>
+    <ClCompile Include="MYRTSpatialOptimized.cpp">
+      <Filter>소스 파일\Pipelines\MyRTSpatialOptimized</Filter>
+    </ClCompile>
+    <ClCompile Include="RTBVHBus.cpp">
+      <Filter>소스 파일\Pipelines\MyRTBVHOptimized\RenderBus</Filter>
+    </ClCompile>
+    <ClCompile Include="RTBVHGBuffer.cpp">
+      <Filter>소스 파일\Pipelines\MyRTBVHOptimized\RenderBus</Filter>
+    </ClCompile>
+    <ClCompile Include="RTRayGenerationPass.cpp">
+      <Filter>소스 파일\Pipelines\MyRTBruteForce\ComputePasses</Filter>
+    </ClCompile>
+    <ClCompile Include="RTShadingPass.cpp">
+      <Filter>소스 파일\Pipelines\MyRTBruteForce\ComputePasses</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -144,23 +183,41 @@
     <ClInclude Include="RTBruteForceBus.h">
       <Filter>소스 파일\Pipelines\MyRTBruteForce\RenderBus</Filter>
     </ClInclude>
-    <ClInclude Include="RTRayGenerationPass.h">
-      <Filter>소스 파일\Pipelines\MyRTBruteForce\RenderPasses</Filter>
-    </ClInclude>
-    <ClInclude Include="RTClosestHitPass.h">
-      <Filter>소스 파일\Pipelines\MyRTBruteForce\RenderPasses</Filter>
-    </ClInclude>
-    <ClInclude Include="RTSecondaryRayPass.h">
-      <Filter>소스 파일\Pipelines\MyRTBruteForce\RenderPasses</Filter>
-    </ClInclude>
-    <ClInclude Include="RTShadingPass.h">
-      <Filter>소스 파일\Pipelines\MyRTBruteForce\RenderPasses</Filter>
-    </ClInclude>
     <ClInclude Include="RTBruteForceGBuffer.h">
       <Filter>소스 파일\Pipelines\MyRTBruteForce\RenderBus</Filter>
     </ClInclude>
     <ClInclude Include="RTBruteForceOutputPass.h">
       <Filter>소스 파일\Pipelines\MyRTBruteForce\RenderPasses</Filter>
+    </ClInclude>
+    <ClInclude Include="RTSkinningPass.h">
+      <Filter>소스 파일\Pipelines\MyRTBruteForce\ComputePasses</Filter>
+    </ClInclude>
+    <ClInclude Include="RTClosestHitPass.h">
+      <Filter>소스 파일\Pipelines\MyRTBruteForce\ComputePasses</Filter>
+    </ClInclude>
+    <ClInclude Include="RTSecondaryRayPass.h">
+      <Filter>소스 파일\Pipelines\MyRTBruteForce\ComputePasses</Filter>
+    </ClInclude>
+    <ClInclude Include="RTSpatialBus.h">
+      <Filter>소스 파일\Pipelines\MyRTSpatialOptimized\RenderBus</Filter>
+    </ClInclude>
+    <ClInclude Include="RTSpatialGBuffer.h">
+      <Filter>소스 파일\Pipelines\MyRTSpatialOptimized\RenderBus</Filter>
+    </ClInclude>
+    <ClInclude Include="MYRTSpatialOptimized.h">
+      <Filter>소스 파일\Pipelines\MyRTSpatialOptimized</Filter>
+    </ClInclude>
+    <ClInclude Include="RTBVHBus.h">
+      <Filter>소스 파일\Pipelines\MyRTBVHOptimized\RenderBus</Filter>
+    </ClInclude>
+    <ClInclude Include="RTBVHGBuffer.h">
+      <Filter>소스 파일\Pipelines\MyRTBVHOptimized\RenderBus</Filter>
+    </ClInclude>
+    <ClInclude Include="RTRayGenerationPass.h">
+      <Filter>소스 파일\Pipelines\MyRTBruteForce\ComputePasses</Filter>
+    </ClInclude>
+    <ClInclude Include="RTShadingPass.h">
+      <Filter>소스 파일\Pipelines\MyRTBruteForce\ComputePasses</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -171,46 +228,6 @@
   <ItemGroup>
     <ClCompile Include="MyRTBVHOptimized.cpp">
       <Filter>소스 파일\Pipelines\MyRTBVHOptimized</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="RTBVHBus.h">
-      <Filter>소스 파일\Pipelines\MyRTBVHOptimized</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="RTBVHBus.cpp">
-      <Filter>소스 파일\Pipelines\MyRTBVHOptimized</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="RTBVHGBuffer.h">
-      <Filter>소스 파일\Pipelines\MyRTBVHOptimized</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="RTBVHGBuffer.cpp">
-      <Filter>소스 파일\Pipelines\MyRTBVHOptimized</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="RTSpatialBus.h">
-      <Filter>소스 파일\Pipelines\MyRTSpatialOptimized</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="RTSpatialBus.cpp">
-      <Filter>소스 파일\Pipelines\MyRTSpatialOptimized</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="RTSpatialGBuffer.h">
-      <Filter>소스 파일\Pipelines\MyRTSpatialOptimized</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="RTSpatialGBuffer.cpp">
-      <Filter>소스 파일\Pipelines\MyRTSpatialOptimized</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

@@ -9,3 +9,6 @@
 // Rendering
 #include <Rendering/RenderScene.h>
 #include <Rendering/RenderObject.h>
+
+// Ray Tracing
+#include <RayTracing/RayTracing.h>

@@ -19,7 +19,9 @@ namespace bdt
             const List<GLSimpleVertex>& vertices, 
             const List<uint32>& indices
         );
-        const GLMesh* GetGLMesh() const override;
+        virtual const GLMesh* GetGLMesh() const override;
+        virtual uint32 GetTriangleCount() const override;
+        virtual Array<uint32, 3> GetTriangle(uint32 index) const override;
 
     public:
         const List<GLSimpleVertex>& GetVertices() const;

@@ -15,7 +15,7 @@ namespace bdt
         BDT_DISABLE_MOVE(MySimpleGBuffer)
 
     public:
-        ~MySimpleGBuffer() override;
+        virtual ~MySimpleGBuffer() override;
         static MySimpleGBufferUPtr Create(uint32 width, uint32 height);
 
         virtual bool Resize(uint32 width, uint32 height) override;

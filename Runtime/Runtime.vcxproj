@@ -263,6 +263,9 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     <ClCompile Include="WorldManager.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\RayTracing\RayTracing.vcxproj">
+      <Project>{f0541140-d51f-477d-81e6-3104a4c67054}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\Rendering\Rendering.vcxproj">
       <Project>{c50cba75-5da0-4195-aec6-ab5993afab9f}</Project>
     </ProjectReference>

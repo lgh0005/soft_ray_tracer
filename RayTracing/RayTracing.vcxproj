@@ -139,7 +139,10 @@
       <EnableSegmentHeap>true</EnableSegmentHeap>
     </Manifest>
     <PostBuildEvent>
-      <Command>if not exist "$(SolutionDir)Build\include\RayTracing" mkdir "$(SolutionDir)Build\include\RayTracing"</Command>
+      <Command>if not exist "$(SolutionDir)Build\include\RayTracing" mkdir "$(SolutionDir)Build\include\RayTracing"
+for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
+    if /I not "%%~nxF"=="pch.h" copy /Y "%%~fF" "$(SolutionDir)Build\include\RayTracing\"
+)</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -165,7 +168,10 @@
       <EnableSegmentHeap>true</EnableSegmentHeap>
     </Manifest>
     <PostBuildEvent>
-      <Command>if not exist "$(SolutionDir)Build\include\RayTracing" mkdir "$(SolutionDir)Build\include\RayTracing"</Command>
+      <Command>if not exist "$(SolutionDir)Build\include\RayTracing" mkdir "$(SolutionDir)Build\include\RayTracing"
+for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
+    if /I not "%%~nxF"=="pch.h" copy /Y "%%~fF" "$(SolutionDir)Build\include\RayTracing\"
+)</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -173,13 +179,16 @@
     <ClInclude Include="BLAS.h" />
     <ClInclude Include="BSPTree.h" />
     <ClInclude Include="BVH.h" />
+    <ClInclude Include="Enums.h" />
     <ClInclude Include="InstanceManager.h" />
     <ClInclude Include="KDTree.h" />
     <ClInclude Include="Octree.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="RayTracing.h" />
-    <ClInclude Include="RayTracingData.h" />
-    <ClInclude Include="RayTracingUniforms.h" />
+    <ClInclude Include="RTData.h" />
+    <ClInclude Include="RTGeometryStorage.h" />
+    <ClInclude Include="RTInstanceStorage.h" />
+    <ClInclude Include="RTUniforms.h" />
     <ClInclude Include="TLAS.h" />
     <ClInclude Include="RTGeometry.h" />
   </ItemGroup>
@@ -197,6 +206,8 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="RTGeometryStorage.cpp" />
+    <ClCompile Include="RTInstanceStorage.cpp" />
     <ClCompile Include="TLAS.cpp" />
   </ItemGroup>
   <ItemGroup>

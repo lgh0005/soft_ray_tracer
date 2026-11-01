@@ -71,6 +71,7 @@ namespace bdt
         data.view = GetViewMatrix();
         data.projection = GetProjectionMatrix();
         data.viewProjection = data.projection * data.view;
+        data.inverseViewProjection = glm::inverse(data.viewProjection);
         data.position = vec4(GetPosition(), 1.0f);
         data.nearPlane = m_nearPlane;
         data.farPlane = m_farPlane;

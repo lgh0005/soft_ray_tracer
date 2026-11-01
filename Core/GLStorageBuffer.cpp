@@ -72,4 +72,11 @@ namespace bdt
     {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, slot, 0);
     }
+
+    bool GLStorageBuffer::Resize(uint32 byteSize)
+    {
+        if (!SetCapacity(byteSize)) return false;
+        m_size = byteSize;
+        return true;
+    }
 }

@@ -30,4 +30,16 @@ namespace bdt
     {
         return m_glMesh.get();
     }
+
+	uint32 ScreenMesh::GetTriangleCount() const
+	{
+		return 2;
+	}
+
+	Array<uint32, 3> ScreenMesh::GetTriangle(uint32 index) const
+	{
+		if (index >= GetTriangleCount()) return { 0, 0, 0 };
+		else if (index == 0) return { 0, 1, 2 };
+		else return { 0, 2, 3 };
+	}
 }

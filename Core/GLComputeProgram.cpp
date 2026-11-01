@@ -61,6 +61,13 @@ namespace bdt
         return m_programID;
     }
 
+    void GLComputeProgram::Dispatch(GLuint groupX, GLuint groupY, GLuint groupZ) const
+    {
+        if (groupX == 0 || groupY == 0 || groupZ == 0) return;
+        Bind();
+        glDispatchCompute(groupX, groupY, groupZ);
+    }
+
     bool GLComputeProgram::IsValid() const
     {
         return m_programID != 0;
