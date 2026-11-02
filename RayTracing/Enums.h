@@ -17,6 +17,13 @@ namespace bdt
         Bone,
         SkinnedOutput,
 
+        // Ray Queue
+        NextRay,
+        RayCounter,
+        NextRayCounter,
+        DispatchCommand,
+        Accumulation,
+
         Count
     };
 

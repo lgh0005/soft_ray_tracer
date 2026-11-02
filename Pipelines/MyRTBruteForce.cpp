@@ -7,18 +7,21 @@
 #include "RTClosestHitPass.h"
 #include "RTSecondaryRayPass.h"
 #include "RTShadingPass.h"
+#include "RTImageResolvePass.h"
 #include "RTBruteForceOutputPass.h"
 
 namespace bdt
 {
     namespace
     {
-        // 가로·세로를 원본의 1/4로 줄여 초기 광선 수를 약 1/16로 제한한다.
+        // 1: 원본 해상도, 2: 가로·세로 절반, 4: 가로·세로 1/4
+        constexpr uint32 TraceResolutionDivisor = 1;
         constexpr uint32 GetTraceDimension(uint32 dimension)
         {
-            return dimension / 4 + (dimension % 4 != 0 ? 1u : 0u);
+            return dimension / TraceResolutionDivisor + (dimension % TraceResolutionDivisor != 0 ? 1u : 0u);
         }
     }
+
 	MyRTBruteForce::MyRTBruteForce() : IRenderPipeline("MyRTBruteForce") { }
 
 	MyRTBruteForce::~MyRTBruteForce()
@@ -49,13 +52,17 @@ namespace bdt
 		m_closestHitPass = RTClosestHitPass::Create();
 		if (!m_closestHitPass) return false;
 
-		//m_secondRayPass = RTSecondaryRayPass::Create();
-		//if (!m_secondRayPass) return false;
+		m_secondRayPass = RTSecondaryRayPass::Create();
+		if (!m_secondRayPass) return false;
 
-		// 3. Render Pass 생성
 		m_rtShadingPass = RTShadingPass::Create();
 		if (!m_rtShadingPass) return false;
 
+		// 3. Image Resolve
+		m_imageResolvePass = RTImageResolvePass::Create();
+		if (!m_imageResolvePass) return false;
+
+		// 4. Render Pass 생성
 		m_bruteForceOutputPass = RTBruteForceOutputPass::Create();
 		if (!m_bruteForceOutputPass) return false;
 
@@ -79,28 +86,53 @@ namespace bdt
 		if (width == 0 || height == 0 || !m_bus)
 			return;
 
+		const uint32 traceWidth = GetTraceDimension(width);
+		const uint32 traceHeight = GetTraceDimension(height);
+
 		// 2. 프레임 공통 자원 준비
-		if (!m_bus->BeginFrame(scene, GetTraceDimension(width), GetTraceDimension(height)))
-			return;
+		if (!m_bus->BeginFrame(scene, traceWidth, traceHeight)) return;
+		RTRayQueue* queue = m_bus->GetRayQueue();
+		if (!queue) return;
 
-		// 3. Primary Ray 생성
-		m_rayGenPass->Execute(*m_bus);
-
-		// 4. GPU 스키닝
+		// 2. GPU Skinning
 		m_skinningPass->Execute(*m_bus);
+		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-		// 5. Primary Ray의 최근접 교차점 탐색
-		m_closestHitPass->Execute(*m_bus);
+		// 3. Primary Ray Generation
+		m_rayGenPass->Execute(*m_bus);
+		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-		// 6. 교차 결과에 대한 음영 계산
-		m_rtShadingPass->Execute(*m_bus);
+		// 4. Bounce Loop
+		for (uint32 bounce = 0; bounce <= MaxBounces; ++bounce)
+		{
+			// Current Ray Queue -> Closest Hit
+			m_closestHitPass->Execute(*m_bus);
 
-		// Secondary Ray 처리 (미활성)
-		// TODO:
-		// Reflection / Refraction 반복 처리 구조 확정 후 활성화
-		// m_secondRayPass->Execute(*m_bus);
+			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-		// 7. 최종 이미지 출력 (ImageResolve)
+			// Hit -> Radiance Accumulation
+			m_rtShadingPass->Execute(*m_bus);
+
+			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+			// 마지막 Bounce에서는 후속 광선을 생성하지 않음
+			if (bounce == MaxBounces)
+				break;
+
+			// Reflection / Refraction Ray Generation
+			// + Atomic Queue Compaction
+			// + Prepare Indirect Dispatch
+			m_secondRayPass->Execute(*m_bus);
+
+			// Current / Next Ray Queue 교체
+			queue->SwapQueues();
+		}
+
+		// 5. Accumulation -> Output Texture
+		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+		m_imageResolvePass->Execute(*m_bus);
+
+		// 6. Output Texture -> Screen
 		m_bruteForceOutputPass->Execute(*m_bus);
 	}
 
@@ -112,6 +144,6 @@ namespace bdt
 		if (m_closestHitPass) m_closestHitPass->Shutdown();
 		if (m_skinningPass) m_skinningPass->Shutdown();
 		if (m_rayGenPass) m_rayGenPass->Shutdown();
-		// m_bus->Shutdown();
+		m_bus->Shutdown();
 	}
 }

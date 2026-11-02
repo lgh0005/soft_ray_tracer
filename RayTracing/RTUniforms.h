@@ -4,6 +4,9 @@
 
 namespace bdt
 {
+    inline constexpr uint32 RTMaxBounces = 3;
+    static_assert(RTMaxBounces < 32);
+
 	struct alignas(BDT_STD140_BASE_ALIGNMENT) RTFrameData
 	{
 		uint32 rayCount{ 0 };

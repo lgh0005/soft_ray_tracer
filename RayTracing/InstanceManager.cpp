@@ -75,14 +75,32 @@ namespace bdt
         instance.worldMatrix = object.GetWorldMatrix();
         instance.inverseWorldMatrix = glm::inverse(instance.worldMatrix);
         instance.meshIndex = geometryIndex;
-        instance.materialIndex = 0;
+
+        // 임시 테스트: Instance 순서에 따라 Material Type 지정
+        const uint32 materialTestIndex = GetInstanceCount();
+        switch (materialTestIndex)
+        {
+        case 0: instance.materialIndex = 0; // Diffuse
+            break;
+
+        case 1:
+            instance.materialIndex = 1; // Mirror
+            break;
+
+        case 2:
+            instance.materialIndex = 2; // Glass
+            break;
+
+        default:
+            instance.materialIndex = 0; // Diffuse
+            break;
+        }
 
         // 5. Skinning 데이터 등록
         if (object.IsSkinned())
         {
             // 5-1. Bone Matrix 등록
             uint32 boneOffset = 0;
-
             if (!AppendBoneMatrices(*boneMatrices, boneOffset))
                 return false;
 

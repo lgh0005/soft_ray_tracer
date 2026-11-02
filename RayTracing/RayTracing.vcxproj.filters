@@ -79,6 +79,9 @@
     <ClInclude Include="RTInstanceStorage.h">
       <Filter>소스 파일\Storages</Filter>
     </ClInclude>
+    <ClInclude Include="RTRayQueue.h">
+      <Filter>소스 파일\Storages</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -112,6 +115,9 @@
       <Filter>소스 파일\Storages</Filter>
     </ClCompile>
     <ClCompile Include="RTInstanceStorage.cpp">
+      <Filter>소스 파일\Storages</Filter>
+    </ClCompile>
+    <ClCompile Include="RTRayQueue.cpp">
       <Filter>소스 파일\Storages</Filter>
     </ClCompile>
   </ItemGroup>

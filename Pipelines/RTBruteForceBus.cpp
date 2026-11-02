@@ -21,9 +21,9 @@ namespace bdt
         if (!m_cameraBuffer || !m_frameDataBuffer) return false;
 
         // Ray Tracing Buffers
-        m_rayBuffer = GLStorageBuffer::Create();
-        m_hitBuffer = GLStorageBuffer::Create();
-        if (!m_rayBuffer || !m_hitBuffer) return false;
+        m_rayQueue = RTRayQueue::Create();
+        if (!m_rayQueue)
+            return false;
 
         // Shared RenderScreen
         m_screen = RenderScreen::Create(BDT_WINDOW.GetWindowWidth(), BDT_WINDOW.GetWindowHeight());
@@ -52,16 +52,26 @@ namespace bdt
 
         // 5. RTFrame UBO
         const uint64 rayCount64 =static_cast<uint64>(width) * height;
-        if (rayCount64 > MaxValue<uint32>) return false;   
+        if (rayCount64 > MaxValue<uint32>) return false;  
+        const uint32 rayCount = static_cast<uint32>(rayCount64);
         RTFrameData frameData{};
-        frameData.rayCount = static_cast<uint32>(rayCount64);
+        frameData.rayCount = rayCount;
         frameData.instanceCount = BDT_INSTANCE.GetInstanceCount();
         m_frameDataBuffer->SetData(0, sizeof(RTFrameData), &frameData);
         m_frameDataBuffer->BindBase(GL_UNIFORM_BUFFER, static_cast<uint32>(ERTUniformBinding::RTFrame));
 
         // 6. Ray / Hit Buffer Binding
-        m_rayBuffer->Bind(static_cast<uint32>(ERTStorageBinding::Ray));
-        m_hitBuffer->Bind(static_cast<uint32>(ERTStorageBinding::Hit));
+        m_rayQueue->Clear();
+        if (!m_rayQueue->SetInitialRayCount(rayCount)) return false;
+        if (!m_rayQueue->SetInitialDispatch(rayCount)) return false;
+
+        // 7. Ray / Hit Buffers
+        m_rayQueue->BindRayBuffer();
+        m_rayQueue->BindHitBuffer();
+
+        // 8. Ray Queue Counters
+        m_rayQueue->BindRayCounter();
+        m_rayQueue->BindNextRayCounter();
 
         return true;
     }
@@ -69,6 +79,16 @@ namespace bdt
     bool RTBruteForceBus::Resize(uint32 width, uint32 height)
     {
         if (width == 0 || height == 0) return false;
+
+        // 각 바운스의 반사·굴절 분기를 모두 수용한다: Primary Ray당 최대 2^RTMaxBounces개
+        constexpr uint64 maxRayMultiplier = uint64{ 1 } << RTMaxBounces;
+        const uint64 pixelCount = static_cast<uint64>(width) * height;
+        const uint64 maxRayCount = pixelCount * maxRayMultiplier;
+        if (pixelCount > MaxValue<uint32> || maxRayCount > MaxValue<uint32>) return false;
+
+        // 1. Ray Queue Capacity    
+        if (!m_rayQueue->Resize(static_cast<uint32>(maxRayCount), static_cast<uint32>(pixelCount)))
+            return false;
 
         // Skip if dimensions are unchanged
         if (GetWidth() == width &&
@@ -79,14 +99,6 @@ namespace bdt
             m_screen &&
             m_screen->GetWidth() == width &&
             m_screen->GetHeight() == height) return true;
-
-        // Ray / Hit Buffer Resize
-        const uint64 rayCount = static_cast<uint64>(width) * height;
-        const uint64 rayBytes = rayCount * sizeof(GPURayWorkItem);
-        const uint64 hitBytes = rayCount * sizeof(GPUHit);
-        if (rayBytes > MaxValue<uint32> || hitBytes > MaxValue<uint32>) return false;
-        if (!m_rayBuffer->Resize(static_cast<uint32>(rayBytes))) return false;
-        if (!m_hitBuffer->Resize(static_cast<uint32>(hitBytes))) return false;
 
         // Output Texture
         RenderTexture2DUPtr newTexture;
@@ -114,8 +126,7 @@ namespace bdt
         m_frameDataBuffer.reset();
 
         // Ray Tracing
-        m_rayBuffer.reset();
-        m_hitBuffer.reset();
+        m_rayQueue.reset();
 
         // Output
         m_outputTexture.reset();
@@ -127,12 +138,17 @@ namespace bdt
 
     GLStorageBuffer* RTBruteForceBus::GetRayBuffer() const
     {
-        return m_rayBuffer.get();
+        return m_rayQueue->GetRayBuffer();
     }
 
     GLStorageBuffer* RTBruteForceBus::GetHitBuffer() const
     {
-        return m_hitBuffer.get();
+        return m_rayQueue->GetHitBuffer();
+    }
+
+    RTRayQueue* RTBruteForceBus::GetRayQueue() const
+    {
+        return m_rayQueue.get();
     }
 
     RenderTexture2D* RTBruteForceBus::GetOutputTexture() const

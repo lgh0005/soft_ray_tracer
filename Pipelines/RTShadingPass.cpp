@@ -35,9 +35,7 @@ namespace bdt
         const auto shader = m_shadingShader.Get();
         if (!shader || !shader->IsValid()) return;
 
-        const uint32 width = rtBus.GetWidth();
-        const uint32 height = rtBus.GetHeight();
-        if (width == 0 || height == 0) return;
+        RTRayQueue* queue = rtBus.GetRayQueue();
 
         // 1. GPU Buffer 및 Output Texture 확인
         auto* rayBuffer = rtBus.GetRayBuffer();
@@ -58,22 +56,21 @@ namespace bdt
         // 4. Instance SSBO 바인딩
         BDT_INSTANCE.BindInstanceBuffer();
 
-        // 5. Output Image 바인딩
-        glBindImageTexture(0, outputTexture->GetTextureID(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
+        // 5. Pixel Accumulation SSBO
+        queue->BindAccumulationBuffer();
 
         // 6. Compute Shader 실행
         shader->Bind();
 
-        const uint32 groupX = (width + 7) / 8;
-        const uint32 groupY = (height + 7) / 8;
+        // 7. Current Bounce의 Indirect Dispatch
+        queue->BindDispatchCommandBuffer();
+        glDispatchComputeIndirect(0);
+        queue->UnbindDispatchCommandBuffer();
 
-        shader->Dispatch(groupX, groupY, 1);
+        // 8. Accumulation SSBO 기록 완료 후 동기화
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-        // 7. 후속 Graphics Pass에서 Texture 접근 보장
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-
-        // 8. 바인딩 해제
-        glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
+        // 9. Cleanup
         ComputeShader::Unbind();
     }
 

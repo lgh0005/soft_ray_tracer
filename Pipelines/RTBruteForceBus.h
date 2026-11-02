@@ -6,6 +6,7 @@ namespace bdt
     BDT_CLASS_PTR(GLBuffer)
     BDT_CLASS_PTR(GLStorageBuffer)
     BDT_CLASS_PTR(RenderScreen)
+    BDT_CLASS_PTR(RTRayQueue)
     BDT_CLASS_PTR(RTBruteForceBus)
 
     class RTBruteForceBus : public IRenderBus
@@ -24,6 +25,7 @@ namespace bdt
         // Ray Tracing Buffers
         GLStorageBuffer* GetRayBuffer() const;
         GLStorageBuffer* GetHitBuffer() const;
+        RTRayQueue* GetRayQueue() const;
 
         // Output Resources
         RenderTexture2D* GetOutputTexture() const;
@@ -39,8 +41,7 @@ namespace bdt
 		GLBufferUPtr m_frameDataBuffer{ nullptr };
 
         // Ray Tracing Buffers
-        GLStorageBufferUPtr m_rayBuffer{ nullptr };
-        GLStorageBufferUPtr m_hitBuffer{ nullptr };
+        RTRayQueueUPtr m_rayQueue{ nullptr };
 
         // Debug / Final Output
         RenderTexture2DUPtr m_outputTexture;

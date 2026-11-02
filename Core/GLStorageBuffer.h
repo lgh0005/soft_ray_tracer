@@ -19,7 +19,7 @@ namespace bdt
 		static void Unbind(uint32 slot);
 
 		bool Resize(uint32 byteSize);
-;		uint32 GetSize() const { return m_size; }
+		uint32 GetSize() const { return m_size; }
 		uint32 GetCapacity() const { return m_capacity; }
 
 	private:

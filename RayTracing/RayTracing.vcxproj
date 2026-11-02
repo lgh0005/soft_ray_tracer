@@ -188,6 +188,7 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     <ClInclude Include="RTData.h" />
     <ClInclude Include="RTGeometryStorage.h" />
     <ClInclude Include="RTInstanceStorage.h" />
+    <ClInclude Include="RTRayQueue.h" />
     <ClInclude Include="RTUniforms.h" />
     <ClInclude Include="TLAS.h" />
     <ClInclude Include="RTGeometry.h" />
@@ -208,6 +209,7 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     </ClCompile>
     <ClCompile Include="RTGeometryStorage.cpp" />
     <ClCompile Include="RTInstanceStorage.cpp" />
+    <ClCompile Include="RTRayQueue.cpp" />
     <ClCompile Include="TLAS.cpp" />
   </ItemGroup>
   <ItemGroup>

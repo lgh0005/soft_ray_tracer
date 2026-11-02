@@ -180,6 +180,7 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     <ClInclude Include="MYRTSpatialOptimized.h" />
     <ClInclude Include="MySimpleGBuffer.h" />
     <ClInclude Include="MyRTBruteForce.h" />
+    <ClInclude Include="RTImageResolvePass.h" />
     <ClInclude Include="RTSpatialGBuffer.h" />
     <ClInclude Include="RTSpatialBus.h" />
     <ClInclude Include="RTBVHGBuffer.h" />
@@ -210,6 +211,7 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     <ClCompile Include="MYRTSpatialOptimized.cpp" />
     <ClCompile Include="MySimpleGBuffer.cpp" />
     <ClCompile Include="MyRTBruteForce.cpp" />
+    <ClCompile Include="RTImageResolvePass.cpp" />
     <ClCompile Include="RTSpatialGBuffer.cpp" />
     <ClCompile Include="RTSpatialBus.cpp" />
     <ClCompile Include="RTBVHGBuffer.cpp" />

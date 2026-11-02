@@ -1,5 +1,6 @@
 #pragma once
 #include <Rendering/IRenderPipeline.h>
+#include <RayTracing/RTUniforms.h>
 
 namespace bdt
 {
@@ -9,6 +10,7 @@ namespace bdt
 	BDT_CLASS_PTR(RTClosestHitPass)
 	BDT_CLASS_PTR(RTSecondaryRayPass)
 	BDT_CLASS_PTR(RTShadingPass)
+	BDT_CLASS_PTR(RTImageResolvePass)
 	BDT_CLASS_PTR(RTBruteForceOutputPass)
 	BDT_CLASS_PTR(MyRTBruteForce)
 
@@ -29,6 +31,8 @@ namespace bdt
 		MyRTBruteForce();
 		virtual bool Init() override;
 
+		static constexpr uint32 MaxBounces = RTMaxBounces;
+
 		// Render Bus
 		RTBruteForceBusUPtr m_bus;
 
@@ -37,9 +41,10 @@ namespace bdt
 		RTSkinningPassUPtr m_skinningPass;
 		RTClosestHitPassUPtr m_closestHitPass;
 		RTSecondaryRayPassUPtr m_secondRayPass;
-
-		// Render Passes
 		RTShadingPassUPtr m_rtShadingPass;
+		RTImageResolvePassUPtr m_imageResolvePass;
+
+		// Output Pass
 		RTBruteForceOutputPassUPtr m_bruteForceOutputPass;
 	};
 }

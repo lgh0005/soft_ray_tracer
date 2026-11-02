@@ -1,6 +1,4 @@
 #pragma once
-#include <Core/Defines.h>
-#include <Core/Types.h>
 #include <Rendering/IRenderPass.h>
 
 namespace bdt
@@ -10,9 +8,16 @@ namespace bdt
 	class RTSecondaryRayPass : public IRenderPass
 	{
 	public:
+		virtual ~RTSecondaryRayPass() override;
 		static RTSecondaryRayPassUPtr Create();
-		virtual bool Init() override;
 		virtual void Execute(IRenderBus& bus) override;
 		virtual void Shutdown() override;
+
+	private:
+		RTSecondaryRayPass();
+		virtual bool Init() override;
+
+		ResourceHandle<ComputeShader> m_secondaryRayShader;
+		ResourceHandle<ComputeShader> m_prepareDispatchShader;
 	};
 }

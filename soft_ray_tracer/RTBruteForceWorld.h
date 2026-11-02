@@ -1,5 +1,7 @@
 #pragma once
 #include <Runtime/World.h>
+#include <Resources/Material.h>
+#include <Resources/ResourceHandle.h>
 
 namespace bdt
 {
@@ -21,5 +23,8 @@ namespace bdt
 	private:
 		explicit RTBruteForceWorld(const String& tag);
 		bool Init();
+
+		ResourceHandle<Material> m_platformMaterial;
+		ResourceHandle<Material> m_sphereMaterial;
 	};
 }

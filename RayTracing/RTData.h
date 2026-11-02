@@ -31,12 +31,18 @@ namespace bdt
 		uvec4 identifiers{ 0 }; // x: Instance ID, y: Primitive ID, z: Material ID, w: 미사용
 	};
 
-	struct alignas(BDT_STD430_BASE_ALIGNMENT) RTSkinningJob
+	struct GPUDispatchCommand
 	{
-		uint32 sourceVertexOffset{ 0 };
-		uint32 outputVertexOffset{ 0 };
-		uint32 vertexCount{ 0 };
-		uint32 boneOffset{ 0 };
-		uint32 boneCount{ 0 };
+		uint32 groupX{ 0 };
+		uint32 groupY{ 1 };
+		uint32 groupZ{ 1 };
+	};
+
+	struct alignas(BDT_STD430_BASE_ALIGNMENT) GPUAccumulatedPixel
+	{
+		uint32 r{ 0 };
+		uint32 g{ 0 };
+		uint32 b{ 0 };
+		uint32 pad0{ 0 };
 	};
 }

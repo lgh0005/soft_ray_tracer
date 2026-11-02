@@ -10,6 +10,7 @@
 #include "RTData.h"
 #include "RTUniforms.h"
 #include "RTGeometry.h"
+#include "RTRayQueue.h"
 
 // Accelerates
 #include "TLAS.h"
