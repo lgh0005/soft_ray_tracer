@@ -1,0 +1,194 @@
+
+#version 460 core
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+// ==================================================
+// Geometry Structures
+// ==================================================
+
+struct GPUSkinnedVertex
+{
+    vec4 position;
+    vec4 normal;
+    vec4 tangent;
+    vec4 uv;
+
+    uvec4 boneIndices;
+    vec4 boneWeights;
+};
+
+struct GPUStaticVertex
+{
+    vec4 position;
+    vec4 normal;
+    vec4 uv;
+};
+
+struct GPUMeshDescriptor
+{
+    uint vertexOffset;
+    uint vertexCount;
+    uint triangleOffset;
+    uint triangleCount;
+};
+
+struct GPUInstance
+{
+    mat4 worldMatrix;
+    mat4 inverseWorldMatrix;
+
+    uint meshIndex;
+    uint materialIndex;
+    uint boneOffset;
+    uint boneCount;
+
+    uint skinnedVertexOffset;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+// ==================================================
+// Frame UBO
+// ==================================================
+
+layout(std140, binding = 1) uniform RTFrameData
+{
+    uint uRayCount;
+    uint uInstanceCount;
+    uint _pad0;
+    uint _pad1;
+};
+
+// ==================================================
+// SSBO
+// ==================================================
+
+// Binding 4: Mesh Descriptors
+layout(std430, binding = 4) readonly buffer MeshBuffer
+{
+    GPUMeshDescriptor meshes[];
+};
+
+// Binding 5: Instances
+layout(std430, binding = 5) readonly buffer InstanceBuffer
+{
+    GPUInstance instances[];
+};
+
+// Binding 6: Original Skinned Vertices
+layout(std430, binding = 6) readonly buffer SkinnedVertexBuffer
+{
+    GPUSkinnedVertex skinnedVertices[];
+};
+
+// Binding 7: Bone Matrices
+layout(std430, binding = 7) readonly buffer BoneBuffer
+{
+    mat4 boneMatrices[];
+};
+
+// Binding 8: Skinned Output
+layout(std430, binding = 8) writeonly buffer SkinnedOutputBuffer
+{
+    GPUStaticVertex outputVertices[];
+};
+
+// ==================================================
+// Linear Blend Skinning
+// ==================================================
+
+void main()
+{
+    uint vertexID = gl_GlobalInvocationID.x;
+    uint instanceID = gl_GlobalInvocationID.y;
+
+    // 1. Instance 범위 확인
+    if (instanceID >= uInstanceCount)
+        return;
+
+    GPUInstance instance = instances[instanceID];
+
+    // StaticMesh는 Skinning 대상이 아님
+    if (instance.boneCount == 0u)
+        return;
+
+    // 2. Mesh Descriptor
+    GPUMeshDescriptor mesh = meshes[instance.meshIndex];
+
+    if (vertexID >= mesh.vertexCount)
+        return;
+
+    // 3. Source / Destination Index
+    uint sourceIndex =
+        mesh.vertexOffset + vertexID;
+
+    uint outputIndex =
+        instance.skinnedVertexOffset + vertexID;
+
+    GPUSkinnedVertex vertex =
+        skinnedVertices[sourceIndex];
+
+    // 4. Bone Weighted Transformation
+    mat4 skinMatrix = mat4(0.0);
+
+    float totalWeight = 0.0;
+
+    for (uint i = 0u; i < 4u; ++i)
+    {
+        uint boneIndex = vertex.boneIndices[i];
+        float weight = vertex.boneWeights[i];
+
+        if (weight <= 0.0)
+            continue;
+
+        if (boneIndex >= instance.boneCount)
+            continue;
+
+        mat4 boneMatrix = boneMatrices[
+            instance.boneOffset + boneIndex
+        ];
+
+        skinMatrix += boneMatrix * weight;
+        totalWeight += weight;
+    }
+
+    // 5. Skinning Result
+    vec4 skinnedPosition;
+    vec3 skinnedNormal;
+
+    if (totalWeight > 0.000001)
+    {
+        // 유효한 Bone Weight 정규화
+        skinMatrix /= totalWeight;
+
+        skinnedPosition =
+            skinMatrix * vec4(vertex.position.xyz, 1.0);
+
+        skinnedNormal =
+            mat3(skinMatrix) * vertex.normal.xyz;
+    }
+    else
+    {
+        // Bone Influence가 없는 Vertex
+        skinnedPosition = vec4(vertex.position.xyz, 1.0);
+        skinnedNormal = vertex.normal.xyz;
+    }
+
+    // 6. Output
+    float normalLength = length(skinnedNormal);
+
+    if (normalLength > 0.000001)
+        skinnedNormal /= normalLength;
+    else
+        skinnedNormal = vec3(0.0, 1.0, 0.0);
+
+    GPUStaticVertex result;
+
+    result.position = vec4(skinnedPosition.xyz, 1.0);
+    result.normal = vec4(skinnedNormal, 0.0);
+    result.uv = vertex.uv;
+
+    outputVertices[outputIndex] = result;
+}

@@ -1,0 +1,46 @@
+
+#version 460 core
+
+layout(local_size_x = 1) in;
+
+// ========================================
+// Next Ray Counter
+// ========================================
+
+layout(std430, binding = 11) readonly buffer NextRayCounterBuffer
+{
+    uint nextRayCount;
+};
+
+// ========================================
+// Indirect Dispatch Command
+// ========================================
+
+layout(std430, binding = 12) buffer DispatchCommandBuffer
+{
+    uint groupX;
+    uint groupY;
+    uint groupZ;
+};
+
+// ========================================
+// Constants
+// ========================================
+
+const uint WORK_GROUP_SIZE = 64u;
+
+// ========================================
+// Main
+// ========================================
+
+void main()
+{
+    // Number of work groups for the next bounce
+    groupX = nextRayCount / WORK_GROUP_SIZE;
+
+    if (nextRayCount % WORK_GROUP_SIZE != 0u)
+        groupX += 1u;
+
+    groupY = 1u;
+    groupZ = 1u;
+}

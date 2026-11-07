@@ -1,0 +1,430 @@
+
+#version 460 core
+
+layout(local_size_x = 64) in;
+
+// ========================================
+// Ray Data
+// ========================================
+
+struct GPURay
+{
+    vec4 origin;
+    vec4 direction;
+};
+
+struct GPURayPayload
+{
+    vec4 throughput;
+
+    uint pixelIndex;
+    uint depth;
+    uint flags;
+    uint pad0;
+};
+
+struct GPURayWorkItem
+{
+    GPURay ray;
+    GPURayPayload payload;
+};
+
+struct GPUHit
+{
+    vec4 intersection;
+    uvec4 identifiers;
+};
+
+// ========================================
+// Geometry Data
+// ========================================
+
+struct GPUStaticVertex
+{
+    vec4 position;
+    vec4 normal;
+    vec4 uv;
+};
+
+struct GPUMeshDescriptor
+{
+    uint vertexOffset;
+    uint vertexCount;
+    uint triangleOffset;
+    uint triangleCount;
+};
+
+struct GPUInstance
+{
+    mat4 worldMatrix;
+    mat4 inverseWorldMatrix;
+
+    uint meshIndex;
+    uint materialIndex;
+    uint boneOffset;
+    uint boneCount;
+
+    uint skinnedVertexOffset;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+// ========================================
+// SSBO
+// ========================================
+
+// Current Ray Queue
+layout(std430, binding = 0) readonly buffer RayBuffer
+{
+    GPURayWorkItem rays[];
+};
+
+// ClosestHit Results
+layout(std430, binding = 1) readonly buffer HitBuffer
+{
+    GPUHit hits[];
+};
+
+// Static Geometry
+layout(std430, binding = 2) readonly buffer VertexBuffer
+{
+    GPUStaticVertex vertices[];
+};
+
+// Triangle Indices
+layout(std430, binding = 3) readonly buffer IndexBuffer
+{
+    uint indices[];
+};
+
+// Mesh Descriptors
+layout(std430, binding = 4) readonly buffer MeshBuffer
+{
+    GPUMeshDescriptor meshes[];
+};
+
+// Instances
+layout(std430, binding = 5) readonly buffer InstanceBuffer
+{
+    GPUInstance instances[];
+};
+
+// GPU Skinned Vertices
+layout(std430, binding = 8) readonly buffer SkinnedOutputBuffer
+{
+    GPUStaticVertex skinnedVertices[];
+};
+
+// Next Ray Queue
+layout(std430, binding = 9) writeonly buffer NextRayBuffer
+{
+    GPURayWorkItem nextRays[];
+};
+
+// Current Ray Count
+layout(std430, binding = 10) readonly buffer RayCounterBuffer
+{
+    uint rayCount;
+};
+
+// Next Ray Count
+layout(std430, binding = 11) buffer NextRayCounterBuffer
+{
+    uint nextRayCount;
+};
+
+// ========================================
+// Constants
+// ========================================
+
+const uint RAY_ACTIVE = 1u;
+
+const uint MATERIAL_DIFFUSE = 0u;
+const uint MATERIAL_MIRROR  = 1u;
+const uint MATERIAL_GLASS   = 2u;
+
+const float AIR_IOR = 1.0;
+const float GLASS_IOR = 1.5;
+
+const float RAY_EPSILON = 0.001;
+const float MIN_THROUGHPUT = 0.0001;
+
+// ========================================
+// Ray Queue Compaction
+// ========================================
+
+void AppendRay(GPURayWorkItem ray)
+{
+    if ((ray.payload.flags & RAY_ACTIVE) == 0u)
+        return;
+
+    float weight = max
+    (
+        max
+        (
+            ray.payload.throughput.r,
+            ray.payload.throughput.g
+        ),
+        ray.payload.throughput.b
+    );
+
+    if (weight < MIN_THROUGHPUT)
+        return;
+
+    // Reserve one slot atomically
+    uint index = atomicAdd(nextRayCount, 1u);
+
+    // Write the generated ray
+    nextRays[index] = ray;
+}
+
+// ========================================
+// Surface Normal
+// ========================================
+
+vec3 GetWorldNormal(
+    GPUHit hit,
+    GPUInstance instance)
+{
+    GPUMeshDescriptor mesh =
+        meshes[instance.meshIndex];
+
+    // Global Triangle ID
+    uint base = hit.identifiers.y * 3u;
+
+    uint i0 = indices[base + 0u];
+    uint i1 = indices[base + 1u];
+    uint i2 = indices[base + 2u];
+
+    vec3 n0;
+    vec3 n1;
+    vec3 n2;
+
+    if (instance.boneCount > 0u)
+    {
+        uint offset = instance.skinnedVertexOffset;
+
+        n0 = skinnedVertices[offset + i0].normal.xyz;
+        n1 = skinnedVertices[offset + i1].normal.xyz;
+        n2 = skinnedVertices[offset + i2].normal.xyz;
+    }
+    else
+    {
+        uint offset = mesh.vertexOffset;
+
+        n0 = vertices[offset + i0].normal.xyz;
+        n1 = vertices[offset + i1].normal.xyz;
+        n2 = vertices[offset + i2].normal.xyz;
+    }
+
+    // Barycentric Coordinates
+    float u = hit.intersection.y;
+    float v = hit.intersection.z;
+    float w = 1.0 - u - v;
+
+    vec3 localNormal = normalize
+    (
+        n0 * w +
+        n1 * u +
+        n2 * v
+    );
+
+    mat3 normalMatrix =
+        transpose(mat3(instance.inverseWorldMatrix));
+
+    return normalize(normalMatrix * localNormal);
+}
+
+// ========================================
+// Fresnel
+// ========================================
+
+float FresnelSchlick(
+    float cosTheta,
+    float etaI,
+    float etaT)
+{
+    float r0 = (etaI - etaT) / (etaI + etaT);
+    r0 *= r0;
+
+    float x = 1.0 - cosTheta;
+
+    return r0 + (1.0 - r0) * pow(x, 5.0);
+}
+
+// ========================================
+// Main
+// ========================================
+
+void main()
+{
+    uint rayID = gl_GlobalInvocationID.x;
+
+    // Skip unused invocations
+    if (rayID >= rayCount)
+        return;
+
+    GPURayWorkItem parentRay = rays[rayID];
+
+    if ((parentRay.payload.flags & RAY_ACTIVE) == 0u)
+        return;
+
+    GPUHit hit = hits[rayID];
+
+    // Miss: no secondary rays
+    if (hit.identifiers.z == 0u)
+        return;
+
+    // ====================================
+    // Instance / Material
+    // ====================================
+
+    GPUInstance instance =
+        instances[hit.identifiers.x];
+
+    uint materialID = instance.materialIndex;
+
+    if (materialID != MATERIAL_MIRROR &&
+        materialID != MATERIAL_GLASS)
+    {
+        return;
+    }
+
+    // ====================================
+    // Surface Information
+    // ====================================
+
+    vec3 incident = normalize(
+        parentRay.ray.direction.xyz
+    );
+
+    vec3 worldNormal =
+        GetWorldNormal(hit, instance);
+
+    // hit.intersection.x = ray parameter t
+    vec3 hitPosition =
+        parentRay.ray.origin.xyz +
+        parentRay.ray.direction.xyz *
+        hit.intersection.x;
+
+    // Determine entry / exit
+    bool entering =
+        dot(incident, worldNormal) < 0.0;
+
+    // Normal facing the incident ray
+    vec3 normal = entering
+        ? worldNormal
+        : -worldNormal;
+
+    // ====================================
+    // Reflection
+    // ====================================
+
+    vec3 reflectionDirection = normalize(
+        reflect(incident, normal)
+    );
+
+    float fresnel = 1.0;
+
+    float etaI = AIR_IOR;
+    float etaT = GLASS_IOR;
+
+    if (materialID == MATERIAL_GLASS)
+    {
+        etaI = entering ? AIR_IOR : GLASS_IOR;
+        etaT = entering ? GLASS_IOR : AIR_IOR;
+
+        float cosTheta = clamp
+        (
+            -dot(incident, normal),
+            0.0,
+            1.0
+        );
+
+        float eta = etaI / etaT;
+
+        float sin2ThetaT =
+            eta * eta *
+            (1.0 - cosTheta * cosTheta);
+
+        // Total Internal Reflection
+        fresnel = sin2ThetaT >= 1.0
+            ? 1.0
+            : FresnelSchlick(
+                cosTheta,
+                etaI,
+                etaT
+            );
+    }
+
+    GPURayWorkItem reflectionRay = parentRay;
+
+    reflectionRay.ray.origin = vec4
+    (
+        hitPosition + normal * RAY_EPSILON,
+        1.0
+    );
+
+    reflectionRay.ray.direction = vec4
+    (
+        reflectionDirection,
+        0.0
+    );
+
+    reflectionRay.payload.depth =
+        parentRay.payload.depth + 1u;
+
+    reflectionRay.payload.flags = RAY_ACTIVE;
+
+    // Mirror: 100% reflection
+    // Glass: Fresnel-weighted reflection
+    reflectionRay.payload.throughput.rgb *= fresnel;
+
+    AppendRay(reflectionRay);
+
+    // ====================================
+    // Refraction
+    // ====================================
+
+    if (materialID != MATERIAL_GLASS)
+        return;
+
+    // No refraction during total internal reflection
+    if (fresnel >= 1.0)
+        return;
+
+    vec3 refractionDirection = refract
+    (
+        incident,
+        normal,
+        etaI / etaT
+    );
+
+    if (dot(refractionDirection, refractionDirection) <= 0.0)
+        return;
+
+    GPURayWorkItem refractionRay = parentRay;
+
+    refractionRay.ray.origin = vec4
+    (
+        hitPosition - normal * RAY_EPSILON,
+        1.0
+    );
+
+    refractionRay.ray.direction = vec4
+    (
+        normalize(refractionDirection),
+        0.0
+    );
+
+    refractionRay.payload.depth =
+        parentRay.payload.depth + 1u;
+
+    refractionRay.payload.flags = RAY_ACTIVE;
+
+    refractionRay.payload.throughput.rgb *=
+        (1.0 - fresnel);
+
+    AppendRay(refractionRay);
+}

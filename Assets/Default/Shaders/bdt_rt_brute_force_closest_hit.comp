@@ -1,0 +1,348 @@
+
+#version 460 core
+
+layout(local_size_x = 64) in;
+
+// ==================================================
+// Constants
+// ==================================================
+
+const float EPSILON = 1e-6;
+const float MAX_RAY_DISTANCE = 3.402823466e+38;
+
+const uint RAY_ACTIVE = 1u;
+
+// ==================================================
+// Ray Structures
+// ==================================================
+
+struct GPURay
+{
+    vec4 origin;
+    vec4 direction;
+};
+
+struct GPURayPayload
+{
+    vec4 throughput;
+
+    uint pixelIndex;
+    uint depth;
+    uint flags;
+    uint pad0;
+};
+
+struct GPURayWorkItem
+{
+    GPURay ray;
+    GPURayPayload payload;
+};
+
+struct GPUHit
+{
+    // x: t, y: barycentric u, z: barycentric v
+    vec4 intersection;
+
+    // x: instanceID, y: globalTriangleID, z: hasHit
+    uvec4 identifiers;
+};
+
+// ==================================================
+// Geometry Structures
+// ==================================================
+
+struct GPUStaticVertex
+{
+    vec4 position;
+    vec4 normal;
+    vec4 uv;
+};
+
+struct GPUMeshDescriptor
+{
+    uint vertexOffset;
+    uint vertexCount;
+    uint triangleOffset;
+    uint triangleCount;
+};
+
+struct GPUInstance
+{
+    mat4 worldMatrix;
+    mat4 inverseWorldMatrix;
+
+    uint meshIndex;
+    uint materialIndex;
+    uint boneOffset;
+    uint boneCount;
+
+    // GPU Skinning
+    uint skinnedVertexOffset;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+// ==================================================
+// SSBO
+// ==================================================
+
+// Binding 0: Current Ray Queue
+layout(std430, binding = 0) readonly buffer RayBuffer
+{
+    GPURayWorkItem rays[];
+};
+
+// Binding 1: Hit Buffer
+layout(std430, binding = 1) writeonly buffer HitBuffer
+{
+    GPUHit hits[];
+};
+
+// Binding 2: Static Vertex Buffer
+layout(std430, binding = 2) readonly buffer VertexBuffer
+{
+    GPUStaticVertex vertices[];
+};
+
+// Binding 3: Triangle Index Buffer
+layout(std430, binding = 3) readonly buffer IndexBuffer
+{
+    uint indices[];
+};
+
+// Binding 4: Mesh Descriptor Buffer
+layout(std430, binding = 4) readonly buffer MeshBuffer
+{
+    GPUMeshDescriptor meshes[];
+};
+
+// Binding 5: Instance Buffer
+layout(std430, binding = 5) readonly buffer InstanceBuffer
+{
+    GPUInstance instances[];
+};
+
+// Binding 8: GPU Skinned Output
+layout(std430, binding = 8) readonly buffer SkinnedOutputBuffer
+{
+    GPUStaticVertex outputVertices[];
+};
+
+// Binding 10: Current Ray Counter
+layout(std430, binding = 10) readonly buffer RayCounterBuffer
+{
+    uint rayCount;
+};
+
+// ==================================================
+// Uniforms
+// ==================================================
+
+// RTFrameData의 Ray Count는 더 이상 사용하지 않음.
+// Instance Count는 프레임 공통 데이터에서 읽음.
+layout(std140, binding = 1) uniform RTFrameData
+{
+    uint uRayCount;
+    uint uInstanceCount;
+    uint _pad0;
+    uint _pad1;
+};
+
+// ==================================================
+// Ray-Triangle Intersection
+// Moller-Trumbore Algorithm
+// ==================================================
+
+bool IntersectTriangle(
+    vec3 rayOrigin,
+    vec3 rayDirection,
+    vec3 v0,
+    vec3 v1,
+    vec3 v2,
+    out float t,
+    out float u,
+    out float v)
+{
+    vec3 edge1 = v1 - v0;
+    vec3 edge2 = v2 - v0;
+
+    vec3 pvec = cross(rayDirection, edge2);
+
+    float determinant = dot(edge1, pvec);
+
+    // Double-sided intersection
+    if (abs(determinant) < EPSILON)
+        return false;
+
+    float invDet = 1.0 / determinant;
+
+    vec3 tvec = rayOrigin - v0;
+
+    u = dot(tvec, pvec) * invDet;
+
+    if (u < 0.0 || u > 1.0)
+        return false;
+
+    vec3 qvec = cross(tvec, edge1);
+
+    v = dot(rayDirection, qvec) * invDet;
+
+    if (v < 0.0 || u + v > 1.0)
+        return false;
+
+    t = dot(edge2, qvec) * invDet;
+
+    if (t <= EPSILON)
+        return false;
+
+    return true;
+}
+
+// ==================================================
+// Closest Hit
+// ==================================================
+
+GPUHit FindClosestHit(GPURay ray)
+{
+    GPUHit closestHit;
+
+    closestHit.intersection =
+        vec4(MAX_RAY_DISTANCE, 0.0, 0.0, 0.0);
+
+    closestHit.identifiers = uvec4(0u);
+
+    float closestT = MAX_RAY_DISTANCE;
+
+    // 모든 Instance 순회
+    for (uint instanceID = 0u;
+         instanceID < uInstanceCount;
+         ++instanceID)
+    {
+        GPUInstance instance = instances[instanceID];
+
+        GPUMeshDescriptor mesh =
+            meshes[instance.meshIndex];
+
+        // World Ray -> Local Ray
+        vec3 localOrigin = (
+            instance.inverseWorldMatrix *
+            vec4(ray.origin.xyz, 1.0)
+        ).xyz;
+
+        vec3 localDirection = (
+            instance.inverseWorldMatrix *
+            vec4(ray.direction.xyz, 0.0)
+        ).xyz;
+
+        // localDirection은 normalize하지 않는다.
+        // World Ray와 동일한 t를 유지하기 위함.
+
+        // 해당 Mesh의 모든 Triangle 순회
+        for (uint triangleIndex = 0u;
+             triangleIndex < mesh.triangleCount;
+             ++triangleIndex)
+        {
+            uint triangleID =
+                mesh.triangleOffset + triangleIndex;
+
+            uint indexBase = triangleID * 3u;
+
+            uint i0 = indices[indexBase + 0u];
+            uint i1 = indices[indexBase + 1u];
+            uint i2 = indices[indexBase + 2u];
+
+            vec3 v0;
+            vec3 v1;
+            vec3 v2;
+
+            if (instance.boneCount > 0u)
+            {
+                // SkinnedMesh: Instance별 Skinning Output
+                uint offset = instance.skinnedVertexOffset;
+
+                v0 = outputVertices[offset + i0].position.xyz;
+                v1 = outputVertices[offset + i1].position.xyz;
+                v2 = outputVertices[offset + i2].position.xyz;
+            }
+            else
+            {
+                // StaticMesh: Shared Geometry
+                uint offset = mesh.vertexOffset;
+
+                v0 = vertices[offset + i0].position.xyz;
+                v1 = vertices[offset + i1].position.xyz;
+                v2 = vertices[offset + i2].position.xyz;
+            }
+
+            float t;
+            float u;
+            float v;
+
+            if (!IntersectTriangle(
+                localOrigin,
+                localDirection,
+                v0, v1, v2,
+                t, u, v))
+            {
+                continue;
+            }
+
+            if (t >= closestT)
+                continue;
+
+            closestT = t;
+
+            closestHit.intersection =
+                vec4(t, u, v, 0.0);
+
+            closestHit.identifiers =
+                uvec4(
+                    instanceID,
+                    triangleID,
+                    1u,
+                    0u
+                );
+        }
+    }
+
+    return closestHit;
+}
+
+// ==================================================
+// Main
+// ==================================================
+
+void main()
+{
+    uint rayIndex = gl_GlobalInvocationID.x;
+
+    // 실제 Current Ray Queue의 광선 개수 검사
+    if (rayIndex >= rayCount)
+        return;
+
+    // 1. Current Ray Queue에서 광선 읽기
+    GPURayWorkItem item = rays[rayIndex];
+
+    // 2. 비활성 광선 처리
+    // Atomic Compaction을 사용하면 일반적으로 발생하지 않지만
+    // 방어적으로 유지한다.
+    if ((item.payload.flags & RAY_ACTIVE) == 0u)
+    {
+        GPUHit missHit;
+
+        missHit.intersection =
+            vec4(MAX_RAY_DISTANCE, 0.0, 0.0, 0.0);
+
+        missHit.identifiers = uvec4(0u);
+
+        hits[rayIndex] = missHit;
+        return;
+    }
+
+    // 3. Brute-Force Closest Hit
+    GPUHit hit = FindClosestHit(item.ray);
+
+    // 4. Ray Index에 대응하는 Hit 결과 기록
+    hits[rayIndex] = hit;
+}

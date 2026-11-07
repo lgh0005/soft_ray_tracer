@@ -1,0 +1,111 @@
+#version 460 core
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(binding = 0) uniform samplerCube uEnvironment;
+layout(rgba16f, binding = 0) writeonly uniform imageCube uOutput;
+
+uniform int uSize;
+uniform int uSamples;
+uniform float uRoughness;
+
+const float PI = 3.14159265358979323846;
+const float EPSILON = 0.00001;
+
+vec3 CubeDirection(ivec3 pixel, int size)
+{
+    vec2 uv = (vec2(pixel.xy) + 0.5) / float(size) * 2.0 - 1.0;
+    float u = uv.x;
+    float v = uv.y;
+
+    // OpenGL 큐브 면 순서: +X, -X, +Y, -Y, +Z, -Z.
+    if (pixel.z == 0) return normalize(vec3( 1.0, -v, -u));
+    if (pixel.z == 1) return normalize(vec3(-1.0, -v,  u));
+    if (pixel.z == 2) return normalize(vec3( u,  1.0,  v));
+    if (pixel.z == 3) return normalize(vec3( u, -1.0, -v));
+    if (pixel.z == 4) return normalize(vec3( u, -v,  1.0));
+    return normalize(vec3(-u, -v, -1.0));
+}
+
+float RadicalInverse(uint bits)
+{
+    bits = (bits << 16u) | (bits >> 16u);
+    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+    return float(bits) * 2.3283064365386963e-10;
+}
+
+vec2 Hammersley(uint index, uint count)
+{
+    return vec2(float(index) / float(count), RadicalInverse(index));
+}
+
+vec3 ImportanceSampleGGX(vec2 xi, float roughness)
+{
+    float alpha = roughness * roughness;
+    float phi = 2.0 * PI * xi.x;
+    float cosTheta = sqrt((1.0 - xi.y) / (1.0 + (alpha * alpha - 1.0) * xi.y));
+    float sinTheta = sqrt(max(0.0, 1.0 - cosTheta * cosTheta));
+    return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+}
+
+float DistributionGGX(float NdotH, float roughness)
+{
+    float alpha = roughness * roughness;
+    float alphaSquared = alpha * alpha;
+    float denominator = NdotH * NdotH * (alphaSquared - 1.0) + 1.0;
+    return alphaSquared / max(PI * denominator * denominator, 0.0000001);
+}
+
+void main()
+{
+    ivec3 pixel = ivec3(gl_GlobalInvocationID);
+    if (pixel.x >= uSize || pixel.y >= uSize || pixel.z >= 6) return;
+
+    vec3 N = CubeDirection(pixel, uSize);
+    float roughness = clamp(uRoughness, 0.0, 1.0);
+
+    // roughness=0에서 GGX의 특이점을 피하고 선명한 원본을 사용한다.
+    if (roughness <= 0.0001)
+    {
+        imageStore(uOutput, pixel, vec4(textureLod(uEnvironment, N, 0.0).rgb, 1.0));
+        return;
+    }
+
+    vec3 up = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    vec3 T = normalize(cross(up, N));
+    vec3 B = cross(N, T);
+    vec3 V = N;
+
+    // 원본 크기와 mip 수를 조회해 해상도 하드코딩을 피한다.
+    float sourceSize = float(textureSize(uEnvironment, 0).x);
+    float texelSolidAngle = 4.0 * PI / (6.0 * sourceSize * sourceSize);
+    float maxSourceLOD = float(max(textureQueryLevels(uEnvironment) - 1, 0));
+
+    uint sampleCount = uint(max(uSamples, 1));
+    vec3 sum = vec3(0.0);
+    float weight = 0.0;
+
+    for (uint i = 0u; i < sampleCount; ++i)
+    {
+        vec3 tangentH = ImportanceSampleGGX(Hammersley(i, sampleCount), roughness);
+        vec3 H = normalize(T * tangentH.x + B * tangentH.y + N * tangentH.z);
+        vec3 L = normalize(2.0 * dot(V, H) * H - V);
+        float NdotL = max(dot(N, L), 0.0);
+        if (NdotL <= 0.0) continue;
+
+        float NdotH = max(dot(N, H), 0.0);
+        float HdotV = max(dot(H, V), EPSILON);
+        float pdf = max(DistributionGGX(NdotH, roughness) * NdotH / (4.0 * HdotV), EPSILON);
+        float sampleSolidAngle = 1.0 / (float(sampleCount) * pdf);
+        float sourceLOD = clamp(0.5 * log2(sampleSolidAngle / texelSolidAngle), 0.0, maxSourceLOD);
+
+        sum += textureLod(uEnvironment, L, sourceLOD).rgb * NdotL;
+        weight += NdotL;
+    }
+
+    // 출력을 각 mip에 기록한다. roughness = mip / (전체 출력 mip 수 - 1).
+    imageStore(uOutput, pixel, vec4(sum / max(weight, EPSILON), 1.0));
+}

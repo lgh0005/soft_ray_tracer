@@ -1,0 +1,45 @@
+#version 460 core
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(binding = 0) uniform sampler2D uHDR;
+layout(rgba16f, binding = 0) writeonly uniform imageCube uOutput;
+
+uniform int uSize;
+
+const float PI = 3.14159265358979323846;
+
+vec3 CubeDirection(ivec3 pixel, int size)
+{
+    vec2 uv = (vec2(pixel.xy) + 0.5) / float(size) * 2.0 - 1.0;
+    float u = uv.x;
+    float v = uv.y;
+
+    // OpenGL 큐브 면 순서: +X, -X, +Y, -Y, +Z, -Z.
+    if (pixel.z == 0) return normalize(vec3( 1.0, -v, -u));
+    if (pixel.z == 1) return normalize(vec3(-1.0, -v,  u));
+    if (pixel.z == 2) return normalize(vec3( u,  1.0,  v));
+    if (pixel.z == 3) return normalize(vec3( u, -1.0, -v));
+    if (pixel.z == 4) return normalize(vec3( u, -v,  1.0));
+    return normalize(vec3(-u, -v, -1.0));
+}
+
+void main()
+{
+    ivec3 pixel = ivec3(gl_GlobalInvocationID);
+    if (pixel.x >= uSize || pixel.y >= uSize || pixel.z >= 6) return;
+
+    vec3 direction = CubeDirection(pixel, uSize);
+    // 극점의 atan(0, 0)은 정의되지 않으므로 경도를 고정한다.
+    float longitude = dot(direction.xz, direction.xz) > 0.000000000001
+        ? atan(direction.z, direction.x) : 0.0;
+    vec2 uv = vec2
+    (
+        longitude / (2.0 * PI) + 0.5,
+        asin(clamp(direction.y, -1.0, 1.0)) / PI + 0.5
+    );
+
+    // 선형 HDR 입력. 입력 sampler는 S=REPEAT, T=CLAMP_TO_EDGE를 사용한다.
+    vec3 radiance = textureLod(uHDR, uv, 0.0).rgb;
+    imageStore(uOutput, pixel, vec4(radiance, 1.0));
+}

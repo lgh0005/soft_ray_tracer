@@ -1,0 +1,484 @@
+
+#version 460 core
+
+layout(local_size_x = 64) in;
+
+// ==================================================
+// Constants
+// ==================================================
+
+const uint RAY_ACTIVE = 1u;
+
+const uint MATERIAL_DIFFUSE = 0u;
+const uint MATERIAL_MIRROR  = 1u;
+const uint MATERIAL_GLASS   = 2u;
+
+// 0: Primary Normal Debug
+// 1: Simple Material Shading
+// 2: Material Index Debug
+const uint SHADING_MODE = 1u;
+
+// Fixed-Point Accumulation
+const float ACCUM_SCALE = 4096.0;
+const float MAX_CONTRIBUTION = 1024.0;
+
+// ==================================================
+// Ray Structures
+// ==================================================
+
+struct GPURay
+{
+    vec4 origin;
+    vec4 direction;
+};
+
+struct GPURayPayload
+{
+    vec4 throughput;
+
+    uint pixelIndex;
+    uint depth;
+    uint flags;
+    uint pad0;
+};
+
+struct GPURayWorkItem
+{
+    GPURay ray;
+    GPURayPayload payload;
+};
+
+// ==================================================
+// Hit Structure
+// ==================================================
+
+struct GPUHit
+{
+    // x: t
+    // y: barycentric u
+    // z: barycentric v
+    vec4 intersection;
+
+    // x: instanceID
+    // y: globalTriangleID
+    // z: hasHit
+    uvec4 identifiers;
+};
+
+// ==================================================
+// Geometry Structures
+// ==================================================
+
+struct GPUStaticVertex
+{
+    vec4 position;
+    vec4 normal;
+    vec4 uv;
+};
+
+struct GPUMeshDescriptor
+{
+    uint vertexOffset;
+    uint vertexCount;
+    uint triangleOffset;
+    uint triangleCount;
+};
+
+struct GPUInstance
+{
+    mat4 worldMatrix;
+    mat4 inverseWorldMatrix;
+
+    uint meshIndex;
+    uint materialIndex;
+    uint boneOffset;
+    uint boneCount;
+
+    uint skinnedVertexOffset;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+// ==================================================
+// Accumulation Structure
+// ==================================================
+
+struct GPUAccumPixel
+{
+    uint r;
+    uint g;
+    uint b;
+    uint pad0;
+};
+
+// ==================================================
+// SSBO
+// ==================================================
+
+// Binding 0: Current Ray Queue
+layout(std430, binding = 0) readonly buffer RayBuffer
+{
+    GPURayWorkItem rays[];
+};
+
+// Binding 1: Hit Buffer
+layout(std430, binding = 1) readonly buffer HitBuffer
+{
+    GPUHit hits[];
+};
+
+// Binding 2: Static Vertex Buffer
+layout(std430, binding = 2) readonly buffer VertexBuffer
+{
+    GPUStaticVertex vertices[];
+};
+
+// Binding 3: Triangle Index Buffer
+layout(std430, binding = 3) readonly buffer IndexBuffer
+{
+    uint indices[];
+};
+
+// Binding 4: Mesh Descriptor Buffer
+layout(std430, binding = 4) readonly buffer MeshBuffer
+{
+    GPUMeshDescriptor meshes[];
+};
+
+// Binding 5: Instance Buffer
+layout(std430, binding = 5) readonly buffer InstanceBuffer
+{
+    GPUInstance instances[];
+};
+
+// Binding 8: Skinned Output Buffer
+layout(std430, binding = 8) readonly buffer SkinnedOutputBuffer
+{
+    GPUStaticVertex outputVertices[];
+};
+
+// Binding 10: Current Ray Counter
+layout(std430, binding = 10) readonly buffer RayCounterBuffer
+{
+    uint rayCount;
+};
+
+// Binding 13: Accumulation Buffer
+layout(std430, binding = 13) buffer AccumulationBuffer
+{
+    GPUAccumPixel accumulation[];
+};
+
+// ==================================================
+// Frame UBO
+// ==================================================
+
+layout(std140, binding = 1) uniform RTFrameData
+{
+    uint uPrimaryRayCount;
+    uint uInstanceCount;
+    uint _pad0;
+    uint _pad1;
+};
+
+// ==================================================
+// Atomic Accumulation
+// ==================================================
+
+void AccumulateRadiance(
+    uint pixelIndex,
+    vec3 radiance)
+{
+    if (pixelIndex >= uPrimaryRayCount)
+        return;
+
+    // Nonnegative radiance only
+    vec3 value = clamp(
+        radiance,
+        vec3(0.0),
+        vec3(MAX_CONTRIBUTION)
+    );
+
+    // Float -> Fixed-Point
+    uvec3 encoded = uvec3(
+        round(value * ACCUM_SCALE)
+    );
+
+    // Atomic accumulation
+    atomicAdd(
+        accumulation[pixelIndex].r,
+        encoded.r
+    );
+
+    atomicAdd(
+        accumulation[pixelIndex].g,
+        encoded.g
+    );
+
+    atomicAdd(
+        accumulation[pixelIndex].b,
+        encoded.b
+    );
+}
+
+// ==================================================
+// World Normal
+// ==================================================
+
+vec3 GetWorldNormal(
+    GPUHit hit,
+    GPUInstance instance)
+{
+    GPUMeshDescriptor mesh =
+        meshes[instance.meshIndex];
+
+    // ClosestHit stores global triangle ID
+    uint indexBase =
+        hit.identifiers.y * 3u;
+
+    uint i0 = indices[indexBase + 0u];
+    uint i1 = indices[indexBase + 1u];
+    uint i2 = indices[indexBase + 2u];
+
+    vec3 n0;
+    vec3 n1;
+    vec3 n2;
+
+    if (instance.boneCount > 0u)
+    {
+        // GPU Skinned Mesh
+        uint offset =
+            instance.skinnedVertexOffset;
+
+        n0 = outputVertices[offset + i0].normal.xyz;
+        n1 = outputVertices[offset + i1].normal.xyz;
+        n2 = outputVertices[offset + i2].normal.xyz;
+    }
+    else
+    {
+        // Static Mesh
+        uint offset = mesh.vertexOffset;
+
+        n0 = vertices[offset + i0].normal.xyz;
+        n1 = vertices[offset + i1].normal.xyz;
+        n2 = vertices[offset + i2].normal.xyz;
+    }
+
+    // Barycentric interpolation
+    float u = hit.intersection.y;
+    float v = hit.intersection.z;
+    float w = 1.0 - u - v;
+
+    vec3 localNormal = normalize(
+        w * n0 +
+        u * n1 +
+        v * n2
+    );
+
+    // Local -> World Normal
+    mat3 normalMatrix =
+        transpose(mat3(instance.inverseWorldMatrix));
+
+    return normalize(
+        normalMatrix * localNormal
+    );
+}
+
+// ==================================================
+// Environment
+// ==================================================
+
+vec3 SampleEnvironment(vec3 rayDirection)
+{
+    vec3 direction = normalize(rayDirection);
+
+    float t = clamp(
+        direction.y * 0.5 + 0.5,
+        0.0,
+        1.0
+    );
+
+    vec3 horizon = vec3(0.55, 0.68, 0.80);
+    vec3 zenith  = vec3(0.08, 0.18, 0.40);
+
+    return mix(horizon, zenith, t);
+}
+
+// ==================================================
+// Simple Diffuse Shading
+// ==================================================
+
+vec3 EvaluateDiffuse(vec3 worldNormal)
+{
+    vec3 lightDirection = normalize(
+        vec3(0.4, 0.9, 0.3)
+    );
+
+    vec3 albedo = vec3(0.75, 0.72, 0.68);
+
+    float NdotL = max(
+        dot(worldNormal, lightDirection),
+        0.0
+    );
+
+    vec3 ambient = albedo * 0.08;
+    vec3 direct = albedo * NdotL * 1.5;
+
+    return ambient + direct;
+}
+
+// ==================================================
+// Material Index Debug
+// ==================================================
+
+vec3 DebugMaterialIndex(uint materialID)
+{
+    if (materialID == MATERIAL_DIFFUSE)
+    {
+        return vec3(1.0, 0.0, 0.0); // Red
+    }
+    else if (materialID == MATERIAL_MIRROR)
+    {
+        return vec3(0.0, 1.0, 0.0); // Green
+    }
+    else if (materialID == MATERIAL_GLASS)
+    {
+        return vec3(0.0, 0.0, 1.0); // Blue
+    }
+
+    return vec3(1.0, 0.0, 1.0); // Magenta
+}
+
+// ==================================================
+// Main
+// ==================================================
+
+void main()
+{
+    // 1. Current Ray Queue Index
+    uint rayIndex = gl_GlobalInvocationID.x;
+
+    if (rayIndex >= rayCount)
+        return;
+
+    // 2. Current Ray
+    GPURayWorkItem ray = rays[rayIndex];
+
+    if ((ray.payload.flags & RAY_ACTIVE) == 0u)
+        return;
+
+    // 3. Original Pixel
+    uint pixelIndex = ray.payload.pixelIndex;
+
+    if (pixelIndex >= uPrimaryRayCount)
+        return;
+
+    // 4. Debug Modes: Primary Ray Only
+    if (SHADING_MODE != 1u &&
+        ray.payload.depth != 0u)
+    {
+        return;
+    }
+
+    // 5. Hit Result
+    GPUHit hit = hits[rayIndex];
+
+    vec3 radiance = vec3(0.0);
+
+    // ==================================================
+    // Miss
+    // ==================================================
+
+    if (hit.identifiers.z == 0u)
+    {
+        if (SHADING_MODE == 1u)
+        {
+            radiance = SampleEnvironment(
+                ray.ray.direction.xyz
+            );
+        }
+    }
+    // ==================================================
+    // Surface Hit
+    // ==================================================
+    else
+    {
+        GPUInstance instance =
+            instances[hit.identifiers.x];
+
+        uint materialID = instance.materialIndex;
+
+        // ==============================================
+        // Material Index Debug
+        // ==============================================
+
+        if (SHADING_MODE == 2u)
+        {
+            radiance = DebugMaterialIndex(materialID);
+        }
+        else
+        {
+            vec3 worldNormal =
+                GetWorldNormal(hit, instance);
+
+            // ==========================================
+            // Normal Debug
+            // ==========================================
+
+            if (SHADING_MODE == 0u)
+            {
+                radiance =
+                    worldNormal * 0.5 + 0.5;
+            }
+            // ==========================================
+            // Simple Material Shading
+            // ==========================================
+
+            else
+            {
+                // Diffuse
+                if (materialID == MATERIAL_DIFFUSE)
+                {
+                    radiance =
+                        EvaluateDiffuse(worldNormal);
+                }
+                // Mirror
+                else if (materialID == MATERIAL_MIRROR)
+                {
+                    // Reflection is evaluated
+                    // on the next bounce.
+                    radiance = vec3(0.0);
+                }
+                // Glass
+                else if (materialID == MATERIAL_GLASS)
+                {
+                    // Reflection / Refraction
+                    // are evaluated on later bounces.
+                    radiance = vec3(0.0);
+                }
+                // Unsupported Material
+                else
+                {
+                    radiance = vec3(1.0, 0.0, 1.0);
+                }
+            }
+        }
+    }
+
+    // ==================================================
+    // Apply Throughput
+    // ==================================================
+
+    vec3 contribution =
+        ray.payload.throughput.rgb * radiance;
+
+    // ==================================================
+    // Accumulate Radiance
+    // ==================================================
+
+    AccumulateRadiance(
+        pixelIndex,
+        contribution
+    );
+}

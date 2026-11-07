@@ -1,0 +1,128 @@
+
+#version 460 core
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+// ==================================================
+// Constants
+// ==================================================
+
+const uint RAY_ACTIVE = 1u;
+
+// ==================================================
+// Ray Structures
+// ==================================================
+
+struct GPURay
+{
+    vec4 origin;       // xyz: origin, w: tMin
+    vec4 direction;    // xyz: direction, w: tMax
+};
+
+struct GPURayPayload
+{
+    vec4 throughput;
+
+    uint pixelIndex;
+    uint depth;
+    uint flags;
+    uint pad0;
+};
+
+struct GPURayWorkItem
+{
+    GPURay ray;
+    GPURayPayload payload;
+};
+
+// ==================================================
+// SSBO
+// ==================================================
+
+// Binding 0: Current Ray Queue
+layout(std430, binding = 0) writeonly buffer RayBuffer
+{
+    GPURayWorkItem rays[];
+};
+
+// ==================================================
+// Camera UBO
+// ==================================================
+
+layout(std140, binding = 0) uniform CameraBuffer
+{
+    mat4 view;
+    mat4 projection;
+    mat4 viewProjection;
+    mat4 inverseViewProjection;
+
+    vec4 cameraPosition;
+
+    float nearPlane;
+    float farPlane;
+    vec2 viewportSize;
+};
+
+// ==================================================
+// Primary Ray Generation
+// ==================================================
+
+void main()
+{
+    // 1. Pixel Coordinates
+    uvec2 pixel = gl_GlobalInvocationID.xy;
+
+    // Output Image 대신 Camera UBO에서 해상도 획득
+    uvec2 resolution = uvec2(viewportSize);
+
+    if (resolution.x == 0u || resolution.y == 0u)
+        return;
+
+    if (pixel.x >= resolution.x ||
+        pixel.y >= resolution.y)
+    {
+        return;
+    }
+
+    // 2. Pixel Center -> NDC
+    vec2 uv =
+        (vec2(pixel) + vec2(0.5)) /
+        vec2(resolution);
+
+    vec2 ndc = uv * 2.0 - 1.0;
+
+    // 3. NDC Far Plane -> World Space
+    vec4 farPosition =
+        inverseViewProjection *
+        vec4(ndc, 1.0, 1.0);
+
+    farPosition /= farPosition.w;
+
+    // 4. Primary Ray
+    vec3 origin = cameraPosition.xyz;
+
+    vec3 direction = normalize(
+        farPosition.xyz - origin
+    );
+
+    // 5. Primary Ray Index
+    uint rayIndex =
+        pixel.y * resolution.x + pixel.x;
+
+    // 6. Ray Work Item
+    GPURayWorkItem item;
+
+    item.ray.origin = vec4(origin, 0.0);
+    item.ray.direction = vec4(direction, 0.0);
+
+    // 7. Initial Payload
+    item.payload.throughput = vec4(1.0);
+
+    item.payload.pixelIndex = rayIndex;
+    item.payload.depth = 0u;
+    item.payload.flags = RAY_ACTIVE;
+    item.payload.pad0 = 0u;
+
+    // 8. Store Primary Ray
+    rays[rayIndex] = item;
+}
