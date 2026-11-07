@@ -7,21 +7,13 @@
 /Assets/
 /ThirdParty/
 
-# 소스에서 추가한 래스터 패스 셰이더만 버전 관리한다.
+# 기본 셰이더는 하위 폴더와 새로 추가하는 파일까지 버전 관리한다.
 !/Assets/
 /Assets/*
 !/Assets/Default/
 /Assets/Default/*
 !/Assets/Default/Shaders/
-/Assets/Default/Shaders/*
-!/Assets/Default/Shaders/bdt_simple_ssao.frag
-!/Assets/Default/Shaders/bdt_simple_ssao_blur.frag
-!/Assets/Default/Shaders/bdt_simple_forward_static.vert
-!/Assets/Default/Shaders/bdt_simple_forward_skinned.vert
-!/Assets/Default/Shaders/bdt_simple_forward.frag
-!/Assets/Default/Shaders/bdt_simple_skybox.vert
-!/Assets/Default/Shaders/bdt_simple_skybox.frag
-!/Assets/Default/Shaders/bdt_simple_post_processing.frag
+!/Assets/Default/Shaders/**
 
 # Visual Studio 개인 설정 및 캐시
 /.vs/
