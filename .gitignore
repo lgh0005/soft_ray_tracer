@@ -2,6 +2,8 @@
 /Binaries/
 /Build/
 /Intermediate/
+/out/
+/build/
 
 # 별도 다운로드로 제공하는 에셋 및 외부 의존성
 /Assets/

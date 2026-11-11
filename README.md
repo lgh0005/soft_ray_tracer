@@ -35,6 +35,7 @@ soft_ray_tracer/              # 저장소 루트
 ├─ Rendering/
 ├─ Resources/
 ├─ Runtime/
+├─ RayTracing/
 └─ soft_ray_tracer/          # 실행 프로젝트 소스 폴더
 ```
 
