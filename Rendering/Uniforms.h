@@ -11,10 +11,16 @@ namespace bdt
 		float metallicFactor   { 0.0f };
 		float roughnessFactor  { 1.0f };
 		float emissionStrength { 1.0f };
-		float heightScale      { 0.0f };
+		float ior              { 1.5f }; // Index of refraction (> 0).
+		float transmission     { 0.0f }; // Transmission weight [0, 1].
 		uint32 textureFlags    { 0 };
-		uint32 pad0[3]		   { 0 };
+		uint32 pad0[2]		   { 0 };
 	};
+
+	static_assert(sizeof(MaterialData) == 64);
+	static_assert(offsetof(MaterialData, ior) == 44);
+	static_assert(offsetof(MaterialData, transmission) == 48);
+	static_assert(offsetof(MaterialData, textureFlags) == 52);
 
 	struct alignas(BDT_STD140_BASE_ALIGNMENT) CameraData
 	{

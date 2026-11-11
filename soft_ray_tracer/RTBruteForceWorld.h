@@ -26,5 +26,7 @@ namespace bdt
 
 		ResourceHandle<Material> m_platformMaterial;
 		ResourceHandle<Material> m_sphereMaterial;
+		ResourceHandle<Material> m_mirrorMaterial;
+		ResourceHandle<Material> m_glassMaterial;
 	};
 }

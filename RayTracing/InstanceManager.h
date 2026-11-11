@@ -4,6 +4,8 @@
 namespace bdt
 {
 	BDT_CLASS_PTR(Mesh)
+	BDT_CLASS_PTR(Material)
+	BDT_CLASS_PTR(GLStorageBuffer)
 	BDT_CLASS_PTR(RTGeometryStorage)
 	BDT_CLASS_PTR(RTInstanceStorage)
 
@@ -24,6 +26,9 @@ namespace bdt
 		bool UploadGeometry();
 		uint32 GetGeometryCount() const;
 
+		const MeshPtr& GetMesh(uint32 meshIndex) const;
+		const GPUMeshDescriptor& GetMeshDescriptor(uint32 meshIndex) const;
+
 		bool RegisterMesh(const MeshPtr& mesh, bool isSkinned, uint32& idx);
 		void BindStaticVertexBuffer() const;
 		void BindSkinnedVertexBuffer() const;
@@ -36,6 +41,7 @@ namespace bdt
 	public:
 		void ClearInstances();
 		bool UploadInstances();
+		const List<GPUInstance>& GetInstances() const;
 		uint32 GetInstanceCount() const;
 		uint32 GetBoneMatrixCount() const;
 		uint32 GetSkinnedVertexCount() const;
@@ -49,7 +55,12 @@ namespace bdt
 
 		bool AllocateSkinnedVertices(uint32 vertexCount, uint32& vertexOffset);
 
+	public:
+		void BindMaterialBuffer() const;
+		uint32 GetMaterialCount() const;
+
 	private:
+		bool RegisterMaterial(const Material* material, uint32& index);
 
 		// 개별 RenderObject를 GPUInstance로 변환
 		bool AppendRenderObject(const RenderObject& object);
@@ -59,6 +70,9 @@ namespace bdt
 
 		RTGeometryStorageUPtr m_geometryStorage;
 		RTInstanceStorageUPtr m_instanceStorage;
+		GLStorageBufferUPtr m_materialBuffer;
+		List<GPURTMaterial> m_materials;
+		Dictionary<const Material*, uint32> m_materialIndices;
 	};
 }
 

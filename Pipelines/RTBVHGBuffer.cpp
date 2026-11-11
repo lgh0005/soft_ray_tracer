@@ -3,6 +3,16 @@
 
 namespace bdt
 {
+	RTBVHGBuffer::RTBVHGBuffer() = default;
+	RTBVHGBuffer::~RTBVHGBuffer() = default;
+
+	RTBVHGBufferUPtr RTBVHGBuffer::Create(uint32 width, uint32 height)
+	{
+		RTBVHGBufferUPtr result(new RTBVHGBuffer());
+		if (!result->Init(width, height)) return nullptr;
+		return result;
+	}
+
 	bool RTBVHGBuffer::Init(uint32 width, uint32 height)
 	{
 		return false;
@@ -21,13 +31,17 @@ namespace bdt
 	{
 	}
 
+	void RTBVHGBuffer::Clear() const
+	{
+	}
+
 	uint32 RTBVHGBuffer::GetWidth() const
 	{
-		return 0;
+		return m_width;
 	}
 
 	uint32 RTBVHGBuffer::GetHeight() const
 	{
-		return 0;
+		return m_height;
 	}
 }

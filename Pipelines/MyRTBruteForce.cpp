@@ -71,12 +71,8 @@ namespace bdt
 
 	bool MyRTBruteForce::Resize(uint32 width, uint32 height)
 	{
-		if (width == 0 || height == 0)
-			return false;
-
-		if (!m_bus)
-			return false;
-
+		if (width == 0 || height == 0) return false;
+		if (!m_bus) return false;
 		return m_bus->Resize(GetTraceDimension(width), GetTraceDimension(height));
 	}
 
@@ -86,10 +82,9 @@ namespace bdt
 		if (width == 0 || height == 0 || !m_bus)
 			return;
 
+		// 2. 프레임 공통 자원 준비
 		const uint32 traceWidth = GetTraceDimension(width);
 		const uint32 traceHeight = GetTraceDimension(height);
-
-		// 2. 프레임 공통 자원 준비
 		if (!m_bus->BeginFrame(scene, traceWidth, traceHeight)) return;
 		RTRayQueue* queue = m_bus->GetRayQueue();
 		if (!queue) return;
@@ -107,19 +102,16 @@ namespace bdt
 		{
 			// Current Ray Queue -> Closest Hit
 			m_closestHitPass->Execute(*m_bus);
-
 			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 			// Hit -> Radiance Accumulation
 			m_rtShadingPass->Execute(*m_bus);
-
 			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 			// 마지막 Bounce에서는 후속 광선을 생성하지 않음
-			if (bounce == MaxBounces)
-				break;
+			if (bounce == MaxBounces) break;
 
-			// Reflection / Refraction Ray Generation
+			// Secondary Ray Generation
 			// + Atomic Queue Compaction
 			// + Prepare Indirect Dispatch
 			m_secondRayPass->Execute(*m_bus);

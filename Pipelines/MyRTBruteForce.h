@@ -31,7 +31,8 @@ namespace bdt
 		MyRTBruteForce();
 		virtual bool Init() override;
 
-		static constexpr uint32 MaxBounces = RTMaxBounces;
+		// [TEMP] Max bounce count for path tracing.
+		static constexpr uint32 MaxBounces = 3;
 
 		// Render Bus
 		RTBruteForceBusUPtr m_bus;

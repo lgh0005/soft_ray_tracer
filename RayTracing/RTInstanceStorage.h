@@ -30,6 +30,7 @@ namespace bdt
         uint32 GetBoneMatrixCount() const;
         uint32 GetSkinnedVertexCount() const;
         uint32 GetMaxSkinnedVertexCount() const;
+        const List<GPUInstance>& GetInstances() const;
 
     private:
         bool UploadInstanceBuffer();

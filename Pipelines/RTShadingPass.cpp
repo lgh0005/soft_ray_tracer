@@ -55,6 +55,7 @@ namespace bdt
 
         // 4. Instance SSBO 바인딩
         BDT_INSTANCE.BindInstanceBuffer();
+        BDT_INSTANCE.BindMaterialBuffer();
 
         // 5. Pixel Accumulation SSBO
         queue->BindAccumulationBuffer();

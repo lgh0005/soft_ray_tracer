@@ -16,15 +16,18 @@ bdt::int32 main()
 	auto world2 = bdt::RTBruteForceWorld::Create();
 	auto pipeline2 = bdt::MyRTBruteForce::Create();
 
+	// [TEMP] BVH 렌더패스 테스트
+	auto pipeline3 = bdt::MyRTBVHOptimized::Create();
+
 	// 3. Level 등록
 	if (!g_application.RegisterLevel(std::move(world), std::move(pipeline)))
 		return -1;
 
-	if (!g_application.RegisterLevel(std::move(world2), std::move(pipeline2)))
+	if (!g_application.RegisterLevel(std::move(world2), std::move(pipeline3)))
 		return -1;
 
 	// 4. Level 활성화
-	g_application.ChangeLevel("RTBruteForceWorld", "MyRTBruteForce");
+	g_application.ChangeLevel("RTBruteForceWorld", "MyRTBVHOptimized");
 
 	// 3. 메인 루프
 	g_application.Update();

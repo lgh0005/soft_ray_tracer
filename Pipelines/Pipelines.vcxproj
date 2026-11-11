@@ -185,6 +185,13 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     <ClInclude Include="RTSpatialBus.h" />
     <ClInclude Include="RTBVHGBuffer.h" />
     <ClInclude Include="RTBVHBus.h" />
+    <ClInclude Include="RTBVHRayGenerationPass.h" />
+    <ClInclude Include="RTBVHSkinningPass.h" />
+    <ClInclude Include="RTBVHClosestHitPass.h" />
+    <ClInclude Include="RTBVHSecondaryRayPass.h" />
+    <ClInclude Include="RTBVHShadingPass.h" />
+    <ClInclude Include="RTBVHImageResolvePass.h" />
+    <ClInclude Include="RTBVHOutputPass.h" />
     <ClInclude Include="MyRTBVHOptimized.h" />
     <ClInclude Include="MySimpleBus.h" />
     <ClInclude Include="MySimpleShadowPass.h" />
@@ -216,6 +223,13 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     <ClCompile Include="RTSpatialBus.cpp" />
     <ClCompile Include="RTBVHGBuffer.cpp" />
     <ClCompile Include="RTBVHBus.cpp" />
+    <ClCompile Include="RTBVHRayGenerationPass.cpp" />
+    <ClCompile Include="RTBVHSkinningPass.cpp" />
+    <ClCompile Include="RTBVHClosestHitPass.cpp" />
+    <ClCompile Include="RTBVHSecondaryRayPass.cpp" />
+    <ClCompile Include="RTBVHShadingPass.cpp" />
+    <ClCompile Include="RTBVHImageResolvePass.cpp" />
+    <ClCompile Include="RTBVHOutputPass.cpp" />
     <ClCompile Include="MyRTBVHOptimized.cpp" />
     <ClCompile Include="MySimpleBus.cpp" />
     <ClCompile Include="MySimpleShadowPass.cpp" />

@@ -66,6 +66,9 @@ namespace bdt
         {
             if (m_meshes[i].get() == mesh.get())
             {
+                uint32 meshType = static_cast<uint32>(ERTMeshType::Static);
+                if (isSkinned) meshType = static_cast<uint32>(ERTMeshType::Skinned);
+                if (m_descriptors[i].meshType != meshType) return false;
                 idx = static_cast<uint32>(i);
                 return true;
             }
@@ -103,6 +106,7 @@ namespace bdt
 
         GPUMeshDescriptor descriptor{};
         descriptor.vertexOffset = static_cast<uint32>(m_vertices.size());
+        descriptor.meshType = static_cast<uint32>(ERTMeshType::Static);
         descriptor.vertexCount = static_cast<uint32>(vertices.size());
         descriptor.triangleOffset = static_cast<uint32>(m_indices.size() / 3);
         descriptor.triangleCount = static_cast<uint32>(indices.size() / 3);
@@ -157,6 +161,7 @@ namespace bdt
 
         GPUMeshDescriptor descriptor{};
         descriptor.vertexOffset = static_cast<uint32>(m_skinnedVertices.size());
+        descriptor.meshType = static_cast<uint32>(ERTMeshType::Skinned);
         descriptor.vertexCount = static_cast<uint32>(vertices.size());
         descriptor.triangleOffset = static_cast<uint32>(m_indices.size() / 3);
         descriptor.triangleCount = static_cast<uint32>(indices.size() / 3);
@@ -279,6 +284,18 @@ namespace bdt
     GLStorageBuffer* RTGeometryStorage::GetIndexBuffer() const
     {
         return m_indexBuffer.get();
+    }
+
+    const MeshPtr& RTGeometryStorage::GetMesh(uint32 meshIndex) const
+    {
+        BDT_ASSERT(meshIndex < m_meshes.size(), "Invalid mesh index");
+        return m_meshes[meshIndex];
+    }
+
+    const GPUMeshDescriptor& RTGeometryStorage::GetMeshDescriptor(uint32 meshIndex) const
+    {
+        BDT_ASSERT(meshIndex < m_descriptors.size(), "Invalid mesh index");
+        return m_descriptors[meshIndex];
     }
 
     GLStorageBuffer* RTGeometryStorage::GetDescriptorBuffer() const

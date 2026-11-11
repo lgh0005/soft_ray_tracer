@@ -81,7 +81,7 @@ namespace bdt
         if (width == 0 || height == 0) return false;
 
         // 각 바운스의 반사·굴절 분기를 모두 수용한다: Primary Ray당 최대 2^RTMaxBounces개
-        constexpr uint64 maxRayMultiplier = uint64{ 1 } << RTMaxBounces;
+        constexpr uint64 maxRayMultiplier = uint64{ 1 } << 3;
         const uint64 pixelCount = static_cast<uint64>(width) * height;
         const uint64 maxRayCount = pixelCount * maxRayMultiplier;
         if (pixelCount > MaxValue<uint32> || maxRayCount > MaxValue<uint32>) return false;

@@ -158,4 +158,9 @@ namespace bdt
     {
         return m_maxSkinnedVertexCount;
     }
+
+    const List<GPUInstance>& RTInstanceStorage::GetInstances() const
+    {
+        return m_instances;
+    }
 }

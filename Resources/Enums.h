@@ -10,8 +10,7 @@ namespace bdt
         AO,
         Roughness,
         Emission,
-        Height,
-        Metallic,
+        Metallic = 6, // Keep existing texture units stable; unit 5 is reserved.
         Specular,
         Count
     };

@@ -340,7 +340,6 @@ namespace bdt
         if (usesLegacyRoughness && !paths.metallic.empty())
             paths.specular = GetTexturePath(material, { aiTextureType_SPECULAR, aiTextureType_MAYA_SPECULAR_COLOR }, path);
         paths.emission = GetTexturePath(material, { aiTextureType_EMISSION_COLOR, aiTextureType_EMISSIVE }, path);
-        paths.height = GetTexturePath(material, { aiTextureType_HEIGHT, aiTextureType_DISPLACEMENT }, path);
 
         // Base Color
         aiColor4D color;

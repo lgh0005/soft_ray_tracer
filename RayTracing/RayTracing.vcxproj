@@ -177,7 +177,6 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
   <ItemGroup>
     <ClInclude Include="AABB.h" />
     <ClInclude Include="BLAS.h" />
-    <ClInclude Include="BSPTree.h" />
     <ClInclude Include="BVH.h" />
     <ClInclude Include="Enums.h" />
     <ClInclude Include="InstanceManager.h" />
@@ -185,6 +184,8 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     <ClInclude Include="Octree.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="RayTracing.h" />
+    <ClInclude Include="RTAccelerates.h" />
+    <ClInclude Include="RTBVHStorage.h" />
     <ClInclude Include="RTData.h" />
     <ClInclude Include="RTGeometryStorage.h" />
     <ClInclude Include="RTInstanceStorage.h" />
@@ -196,7 +197,6 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
   <ItemGroup>
     <ClCompile Include="AABB.cpp" />
     <ClCompile Include="BLAS.cpp" />
-    <ClCompile Include="BSPTree.cpp" />
     <ClCompile Include="BVH.cpp" />
     <ClCompile Include="InstanceManager.cpp" />
     <ClCompile Include="KDTree.cpp" />
@@ -207,6 +207,7 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="RTBVHStorage.cpp" />
     <ClCompile Include="RTGeometryStorage.cpp" />
     <ClCompile Include="RTInstanceStorage.cpp" />
     <ClCompile Include="RTRayQueue.cpp" />

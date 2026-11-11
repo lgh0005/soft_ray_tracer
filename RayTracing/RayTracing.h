@@ -11,13 +11,13 @@
 #include "RTUniforms.h"
 #include "RTGeometry.h"
 #include "RTRayQueue.h"
+#include "RTBVHStorage.h"
 
 // Accelerates
 #include "TLAS.h"
 #include "BLAS.h"
 #include "Octree.h"
 #include "KDTree.h"
-#include "BSPTree.h"
 
 // Managers
 #include "InstanceManager.h"

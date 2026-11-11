@@ -65,6 +65,7 @@ namespace bdt
 
 		// 5. Instance / GPU Skinning
 		BDT_INSTANCE.BindInstanceBuffer();
+        BDT_INSTANCE.BindMaterialBuffer();
 		BDT_INSTANCE.BindSkinnedOutputBuffer();
 
 		// 6. Compute Shader

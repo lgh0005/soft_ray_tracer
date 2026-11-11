@@ -176,7 +176,6 @@ namespace bdt
                 textures.metallic  = LoadImage2D(paths.metallic);
                 textures.specular  = LoadImage2D(paths.specular);
                 textures.emission  = LoadImage2D(paths.emission);
-                textures.height    = LoadImage2D(paths.height);
                 
                 String key = path + "#material/" + std::to_string(i);
                 materials.push_back(LoadMaterial(key, desc, textures));

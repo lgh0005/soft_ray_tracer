@@ -12,7 +12,6 @@ namespace bdt
         String ao;
         String roughness;
         String emission;
-        String height;
         String metallic;
         String specular;
     };
@@ -24,7 +23,6 @@ namespace bdt
         ResourceHandle<Image2D> ao;
         ResourceHandle<Image2D> roughness;
         ResourceHandle<Image2D> emission;
-        ResourceHandle<Image2D> height;
         ResourceHandle<Image2D> metallic;
         ResourceHandle<Image2D> specular;
     };
@@ -36,6 +34,7 @@ namespace bdt
         float metallicFactor   { 0.0f };
         float roughnessFactor  { 1.0f };
         float emissionStrength { 1.0f };
-        float heightScale      { 0.0f };
+        float ior              { 1.5f }; // Index of refraction (> 0).
+        float transmission     { 0.0f }; // Transmission weight [0, 1].
     };
 }

@@ -9,10 +9,6 @@ layout(local_size_x = 64) in;
 
 const uint RAY_ACTIVE = 1u;
 
-const uint MATERIAL_DIFFUSE = 0u;
-const uint MATERIAL_MIRROR  = 1u;
-const uint MATERIAL_GLASS   = 2u;
-
 // 0: Primary Normal Debug
 // 1: Simple Material Shading
 // 2: Material Index Debug
@@ -82,7 +78,13 @@ struct GPUMeshDescriptor
     uint vertexCount;
     uint triangleOffset;
     uint triangleCount;
+    uint meshType;
+    uint pad0;
+    uint pad1;
+    uint pad2;
 };
+
+const uint MESH_TYPE_SKINNED = 1u; // ERTMeshType::Skinned
 
 struct GPUInstance
 {
@@ -98,6 +100,21 @@ struct GPUInstance
     uint pad0;
     uint pad1;
     uint pad2;
+};
+
+struct GPURTMaterial
+{
+    vec4 albedoFactor;
+    vec4 emission;
+    float metallicFactor;
+    float roughnessFactor;
+    float ior;
+    float transmission;
+};
+
+layout(std430, binding = 14) readonly buffer MaterialBuffer
+{
+    GPURTMaterial materials[];
 };
 
 // ==================================================
@@ -245,7 +262,7 @@ vec3 GetWorldNormal(
     vec3 n1;
     vec3 n2;
 
-    if (instance.boneCount > 0u)
+    if (mesh.meshType == MESH_TYPE_SKINNED)
     {
         // GPU Skinned Mesh
         uint offset =
@@ -309,13 +326,11 @@ vec3 SampleEnvironment(vec3 rayDirection)
 // Simple Diffuse Shading
 // ==================================================
 
-vec3 EvaluateDiffuse(vec3 worldNormal)
+vec3 EvaluateDiffuse(vec3 worldNormal, vec3 albedo)
 {
     vec3 lightDirection = normalize(
         vec3(0.4, 0.9, 0.3)
     );
-
-    vec3 albedo = vec3(0.75, 0.72, 0.68);
 
     float NdotL = max(
         dot(worldNormal, lightDirection),
@@ -334,20 +349,23 @@ vec3 EvaluateDiffuse(vec3 worldNormal)
 
 vec3 DebugMaterialIndex(uint materialID)
 {
-    if (materialID == MATERIAL_DIFFUSE)
-    {
-        return vec3(1.0, 0.0, 0.0); // Red
-    }
-    else if (materialID == MATERIAL_MIRROR)
-    {
-        return vec3(0.0, 1.0, 0.0); // Green
-    }
-    else if (materialID == MATERIAL_GLASS)
-    {
-        return vec3(0.0, 0.0, 1.0); // Blue
-    }
+    // Color by table index, without assigning a material model to that index.
+    uint hash = materialID * 1664525u + 1013904223u;
+    return vec3(hash & 255u, (hash >> 8u) & 255u, (hash >> 16u) & 255u) / 255.0;
+}
 
-    return vec3(1.0, 0.0, 1.0); // Magenta
+float EvaluateDielectricFresnel(vec3 incident, vec3 worldNormal, float ior)
+{
+    bool entering = dot(incident, worldNormal) < 0.0;
+    float etaI = entering ? 1.0 : ior;
+    float etaT = entering ? ior : 1.0;
+    if (etaI == etaT) return 0.0;
+    float cosTheta = clamp(abs(dot(incident, worldNormal)), 0.0, 1.0);
+    float eta = etaI / etaT;
+    if (eta * eta * (1.0 - cosTheta * cosTheta) >= 1.0) return 1.0;
+    float r0 = (etaI - etaT) / (etaI + etaT);
+    r0 *= r0;
+    return r0 + (1.0 - r0) * pow(1.0 - cosTheta, 5.0);
 }
 
 // ==================================================
@@ -408,6 +426,7 @@ void main()
             instances[hit.identifiers.x];
 
         uint materialID = instance.materialIndex;
+        GPURTMaterial material = materials[materialID];
 
         // ==============================================
         // Material Index Debug
@@ -437,31 +456,15 @@ void main()
 
             else
             {
-                // Diffuse
-                if (materialID == MATERIAL_DIFFUSE)
-                {
-                    radiance =
-                        EvaluateDiffuse(worldNormal);
-                }
-                // Mirror
-                else if (materialID == MATERIAL_MIRROR)
-                {
-                    // Reflection is evaluated
-                    // on the next bounce.
-                    radiance = vec3(0.0);
-                }
-                // Glass
-                else if (materialID == MATERIAL_GLASS)
-                {
-                    // Reflection / Refraction
-                    // are evaluated on later bounces.
-                    radiance = vec3(0.0);
-                }
-                // Unsupported Material
-                else
-                {
-                    radiance = vec3(1.0, 0.0, 1.0);
-                }
+                float metallic = clamp(material.metallicFactor, 0.0, 1.0);
+                float transmission = clamp(material.transmission, 0.0, 1.0);
+                float fresnel = EvaluateDielectricFresnel(
+                    normalize(ray.ray.direction.xyz), worldNormal, max(material.ior, 0.001));
+                float diffuseWeight = (1.0 - metallic) * (1.0 - transmission) * (1.0 - fresnel);
+                vec3 albedo = clamp(material.albedoFactor.rgb, vec3(0.0), vec3(1.0));
+                // Specular reflection/transmission is evaluated on later bounces.
+                radiance = max(material.emission.rgb, vec3(0.0)) +
+                    diffuseWeight * EvaluateDiffuse(worldNormal, albedo);
             }
         }
     }

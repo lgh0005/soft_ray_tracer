@@ -25,11 +25,17 @@ namespace bdt
 		void BindIndexBuffer() const;
 		void BindDescriptorBuffer() const;
 
+		const MeshPtr& GetMesh(uint32 meshIndex) const;
+		const GPUMeshDescriptor& GetMeshDescriptor(uint32 meshIndex) const;
+
 		GLStorageBuffer* GetVertexBuffer() const;
 		GLStorageBuffer* GetSkinnedVertexBuffer() const;
 		GLStorageBuffer* GetIndexBuffer() const;
 		GLStorageBuffer* GetDescriptorBuffer() const;
 		uint32 GetGeometryCount() const;
+
+		//const MeshPtr& GetMesh(uint32 meshIndex) const;
+		//bool IsSkinnedMesh(uint32 meshIndex) const;
 
 	private:
 		bool RegisterStaticMesh(const MeshPtr& mesh, uint32& idx);

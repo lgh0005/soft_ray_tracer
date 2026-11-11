@@ -28,7 +28,7 @@ namespace bdt
 	struct alignas(BDT_STD430_BASE_ALIGNMENT) GPUHit
 	{
 		vec4 intersection{ 0.0f };  // x: 교차 거리, y: Barycentric u, z: Barycentric v, w: 미사용
-		uvec4 identifiers{ 0 }; // x: Instance ID, y: Primitive ID, z: Material ID, w: 미사용
+		uvec4 identifiers{ 0 }; // x: Instance ID, y: Global Triangle ID, z: Hit 여부, w: 미사용
 	};
 
 	struct GPUDispatchCommand

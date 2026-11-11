@@ -39,7 +39,8 @@ namespace bdt
             data.metallicFactor = desc.metallicFactor;
             data.roughnessFactor = desc.roughnessFactor;
             data.emissionStrength = desc.emissionStrength;
-            data.heightScale = desc.heightScale;
+            data.ior = desc.ior;
+            data.transmission = desc.transmission;
 
             // Material Textures
             BindTexture(textures.albedo, EMaterialTextureSlot::Albedo, data);
@@ -47,7 +48,6 @@ namespace bdt
             BindTexture(textures.ao, EMaterialTextureSlot::AO, data);
             BindTexture(textures.roughness, EMaterialTextureSlot::Roughness, data);
             BindTexture(textures.emission, EMaterialTextureSlot::Emission, data);
-            BindTexture(textures.height, EMaterialTextureSlot::Height, data);
             BindTexture(textures.metallic, EMaterialTextureSlot::Metallic, data);
             BindTexture(textures.specular, EMaterialTextureSlot::Specular, data);
         }

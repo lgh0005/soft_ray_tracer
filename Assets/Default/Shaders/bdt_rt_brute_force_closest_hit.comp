@@ -64,7 +64,13 @@ struct GPUMeshDescriptor
     uint vertexCount;
     uint triangleOffset;
     uint triangleCount;
+    uint meshType;
+    uint pad0;
+    uint pad1;
+    uint pad2;
 };
+
+const uint MESH_TYPE_SKINNED = 1u; // ERTMeshType::Skinned
 
 struct GPUInstance
 {
@@ -256,7 +262,7 @@ GPUHit FindClosestHit(GPURay ray)
             vec3 v1;
             vec3 v2;
 
-            if (instance.boneCount > 0u)
+            if (mesh.meshType == MESH_TYPE_SKINNED)
             {
                 // SkinnedMesh: Instance별 Skinning Output
                 uint offset = instance.skinnedVertexOffset;

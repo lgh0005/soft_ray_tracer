@@ -12,7 +12,6 @@ namespace bdt
 		constexpr cstr SphereNormalPath = "Assets/MetalBall/worn-shiny-metal-Normal-ogl.ktx2";
 		constexpr cstr SphereAOPath = "Assets/MetalBall/worn-shiny-metal-ao.ktx2";
 		constexpr cstr SphereRoughnessPath = "Assets/MetalBall/worn-shiny-metal-Roughness.ktx2";
-		constexpr cstr SphereHeightPath = "Assets/MetalBall/worn-shiny-metal-Height.ktx2";
 		constexpr cstr SphereMetallicPath = "Assets/MetalBall/worn-shiny-metal-Metallic.ktx2";
 
 		constexpr float ModelEmissionStrength = 8.0f;
@@ -49,16 +48,26 @@ namespace bdt
 
 		// 구 머티리얼과 텍스처 로드
 		MaterialDesc sphereDesc{};
-		sphereDesc.metallicFactor = 1.0f;
+		sphereDesc.metallicFactor = 0.0f;
 		sphereDesc.roughnessFactor = 1.0f;
 		MaterialTextures sphereTextures{};
 		sphereTextures.albedo = BDT_RESOURCE.LoadImage2D(SphereAlbedoPath);
 		sphereTextures.normal = BDT_RESOURCE.LoadImage2D(SphereNormalPath);
 		sphereTextures.ao = BDT_RESOURCE.LoadImage2D(SphereAOPath);
 		sphereTextures.roughness = BDT_RESOURCE.LoadImage2D(SphereRoughnessPath);
-		sphereTextures.height = BDT_RESOURCE.LoadImage2D(SphereHeightPath);
 		sphereTextures.metallic = BDT_RESOURCE.LoadImage2D(SphereMetallicPath);
 		m_sphereMaterial = BDT_RESOURCE.LoadMaterial("RTBruteForceWorld.Sphere", sphereDesc, sphereTextures);
+
+		// Explicit properties keep the sample independent of object submission order.
+		MaterialDesc mirrorDesc{};
+		mirrorDesc.metallicFactor = 1.0f;
+		mirrorDesc.roughnessFactor = 0.0f;
+		m_mirrorMaterial = BDT_RESOURCE.LoadMaterial("RTBruteForceWorld.Mirror", mirrorDesc, {});
+		MaterialDesc glassDesc{};
+		glassDesc.roughnessFactor = 0.0f;
+		glassDesc.ior = 1.5f;
+		glassDesc.transmission = 1.0f;
+		m_glassMaterial = BDT_RESOURCE.LoadMaterial("RTBruteForceWorld.Glass", glassDesc, {});
 	}
 
 	void RTBruteForceWorld::Update(float deltaTime)
@@ -87,9 +96,10 @@ namespace bdt
 
 		// 5. 발판 위에 구 3개를 중심 간격 1.5로 배치
 		constexpr cstr sphereTags[] = { "Sphere", "Sphere2", "Sphere3" };
+		const ResourceHandle<Material> sphereMaterials[] = { m_sphereMaterial, m_mirrorMaterial, m_glassMaterial };
 		for (uint32 i = 0; i < 3; ++i)
 		{
-			auto* sphere = AddPrimitiveActor(sphereTags[i], EPrimitiveType::Sphere, m_sphereMaterial);
+			auto* sphere = AddPrimitiveActor(sphereTags[i], EPrimitiveType::Sphere, sphereMaterials[i]);
 			const float x = (static_cast<float>(i) - 1.0f) * 1.5f;
 			sphere->GetPrimitiveRenderer()->SetPosition(vec3(x, 0.5f, 0.0f));
 		}

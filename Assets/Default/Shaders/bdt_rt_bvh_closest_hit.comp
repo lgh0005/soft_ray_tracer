@@ -1,0 +1,443 @@
+#version 460 core
+
+layout(local_size_x = 64) in;
+
+// Matches bdt_rt_brute_force_closest_hit.comp for all ray, geometry and hit layouts.
+const float EPSILON = 1e-6;
+const float MAX_RAY_DISTANCE = 3.402823466e+38;
+const uint INVALID_INDEX = 0xffffffffu;
+const uint RAY_ACTIVE = 1u;
+const uint MESH_TYPE_SKINNED = 1u;
+
+struct GPURay
+{
+    vec4 origin;
+    vec4 direction;
+};
+
+struct GPURayPayload
+{
+    vec4 throughput;
+    uint pixelIndex;
+    uint depth;
+    uint flags;
+    uint pad0;
+};
+
+struct GPURayWorkItem
+{
+    GPURay ray;
+    GPURayPayload payload;
+};
+
+struct GPUHit
+{
+    vec4 intersection; // x: t, y: barycentric u, z: barycentric v
+    uvec4 identifiers; // x: instanceID, y: globalTriangleID, z: hasHit
+};
+
+struct GPUStaticVertex
+{
+    vec4 position;
+    vec4 normal;
+    vec4 uv;
+};
+
+struct GPUMeshDescriptor
+{
+    uint vertexOffset;
+    uint vertexCount;
+    uint triangleOffset;
+    uint triangleCount;
+    uint meshType;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPUInstance
+{
+    mat4 worldMatrix;
+    mat4 inverseWorldMatrix;
+    uint meshIndex;
+    uint materialIndex;
+    uint boneOffset;
+    uint boneCount;
+    uint skinnedVertexOffset;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+// GPUBVHNodeTopology: treeTopology = (left, right, parent, isLeaf)
+// primitiveRange = (firstPrimitive, primitiveCount, unused, escapeIndex)
+// All node and primitive indices in these uploaded structures are absolute.
+struct GPUBVHNodeTopology
+{
+    uvec4 treeTopology;
+    uvec4 primitiveRange;
+};
+
+struct GPUBVHNodeBounds
+{
+    vec4 aabbMin;
+    vec4 aabbMax;
+};
+
+// ranges = (nodeOffset, nodeCount, primitiveOffset, primitiveCount)
+// metadata = (absoluteRootNode, meshIndex, reserved, reserved)
+struct GPUBVHDescriptor
+{
+    uvec4 ranges;
+    uvec4 metadata;
+};
+
+layout(std430, binding = 0) readonly buffer RayBuffer
+{
+    GPURayWorkItem rays[];
+};
+
+layout(std430, binding = 1) writeonly buffer HitBuffer
+{
+    GPUHit hits[];
+};
+
+layout(std430, binding = 2) readonly buffer VertexBuffer
+{
+    GPUStaticVertex vertices[];
+};
+
+layout(std430, binding = 3) readonly buffer IndexBuffer
+{
+    uint indices[];
+};
+
+layout(std430, binding = 4) readonly buffer MeshBuffer
+{
+    GPUMeshDescriptor meshes[];
+};
+
+layout(std430, binding = 5) readonly buffer InstanceBuffer
+{
+    GPUInstance instances[];
+};
+
+layout(std430, binding = 8) readonly buffer SkinnedOutputBuffer
+{
+    GPUStaticVertex outputVertices[];
+};
+
+layout(std430, binding = 10) readonly buffer RayCounterBuffer
+{
+    uint rayCount;
+};
+
+// IMPORTANT: verify these binding numbers against ERTStorageBinding.
+// These assume BVHTopology, BVHBounds, BVHPrimitive, BVHDescriptor are 15..18.
+layout(std430, binding = 15) readonly buffer BVHTopologyBuffer
+{
+    GPUBVHNodeTopology bvhTopology[];
+};
+
+layout(std430, binding = 16) readonly buffer BVHBoundsBuffer
+{
+    GPUBVHNodeBounds bvhBounds[];
+};
+
+layout(std430, binding = 17) readonly buffer BVHPrimitiveBuffer
+{
+    uint bvhPrimitiveIndices[];
+};
+
+layout(std430, binding = 18) readonly buffer BVHDescriptorBuffer
+{
+    GPUBVHDescriptor bvhDescriptors[];
+};
+
+layout(std140, binding = 1) uniform RTFrameData
+{
+    uint uRayCount;
+    uint uInstanceCount;
+    uint _pad0;
+    uint _pad1;
+};
+
+// C++ RTBVHStorage appends one BLAS descriptor per Mesh, then one TLAS descriptor.
+// Set this to BDT_INSTANCE.GetGeometryCount() after binding this shader.
+layout(location = 0) uniform uint uTLASDescriptorIndex;
+
+// ==================================================
+// Ray-Triangle Intersection
+// Moller-Trumbore Algorithm
+// ==================================================
+
+bool IntersectTriangle(
+    vec3 rayOrigin,
+    vec3 rayDirection,
+    vec3 v0,
+    vec3 v1,
+    vec3 v2,
+    out float t,
+    out float u,
+    out float v)
+{
+    vec3 edge1 = v1 - v0;
+    vec3 edge2 = v2 - v0;
+
+    vec3 pvec = cross(rayDirection, edge2);
+
+    float determinant = dot(edge1, pvec);
+
+    // Double-sided intersection
+    if (abs(determinant) < EPSILON)
+        return false;
+
+    float invDet = 1.0 / determinant;
+
+    vec3 tvec = rayOrigin - v0;
+
+    u = dot(tvec, pvec) * invDet;
+
+    if (u < 0.0 || u > 1.0)
+        return false;
+
+    vec3 qvec = cross(tvec, edge1);
+
+    v = dot(rayDirection, qvec) * invDet;
+
+    if (v < 0.0 || u + v > 1.0)
+        return false;
+
+    t = dot(edge2, qvec) * invDet;
+
+    if (t <= EPSILON)
+        return false;
+
+    return true;
+}
+
+// ==================================================
+// Ray-AABB intersection
+// ==================================================
+
+bool IntersectAABB(
+    vec3 origin,
+    vec3 direction,
+    GPUBVHNodeBounds bounds,
+    float maxDistance)
+{
+    float nearT = 0.0;
+    float farT = maxDistance;
+
+    for (int axis = 0; axis < 3; ++axis)
+    {
+        float o = origin[axis];
+        float d = direction[axis];
+        float bMin = bounds.aabbMin[axis];
+        float bMax = bounds.aabbMax[axis];
+
+        if (abs(d) < EPSILON)
+        {
+            if (o < bMin || o > bMax)
+                return false;
+            continue;
+        }
+
+        float t0 = (bMin - o) / d;
+        float t1 = (bMax - o) / d;
+        nearT = max(nearT, min(t0, t1));
+        farT = min(farT, max(t0, t1));
+
+        if (nearT > farT)
+            return false;
+    }
+
+    return farT > EPSILON;
+}
+
+// ==================================================
+// Triangle / BLAS traversal
+// ==================================================
+
+void IntersectMeshTriangle(
+    uint instanceID,
+    GPUInstance instance,
+    GPUMeshDescriptor mesh,
+    uint localTriangleIndex,
+    vec3 localOrigin,
+    vec3 localDirection,
+    inout float closestT,
+    inout GPUHit closestHit)
+{
+    if (localTriangleIndex >= mesh.triangleCount)
+        return;
+
+    uint triangleID = mesh.triangleOffset + localTriangleIndex;
+    uint indexBase = triangleID * 3u;
+
+    uint i0 = indices[indexBase];
+    uint i1 = indices[indexBase + 1u];
+    uint i2 = indices[indexBase + 2u];
+
+    vec3 v0;
+    vec3 v1;
+    vec3 v2;
+
+    if (mesh.meshType == MESH_TYPE_SKINNED)
+    {
+        uint offset = instance.skinnedVertexOffset;
+        v0 = outputVertices[offset + i0].position.xyz;
+        v1 = outputVertices[offset + i1].position.xyz;
+        v2 = outputVertices[offset + i2].position.xyz;
+    }
+    else
+    {
+        uint offset = mesh.vertexOffset;
+        v0 = vertices[offset + i0].position.xyz;
+        v1 = vertices[offset + i1].position.xyz;
+        v2 = vertices[offset + i2].position.xyz;
+    }
+
+    float t, u, v;
+    if (!IntersectTriangle(localOrigin, localDirection, v0, v1, v2, t, u, v))
+        return;
+
+    if (t >= closestT)
+        return;
+
+    closestT = t;
+    closestHit.intersection = vec4(t, u, v, 0.0);
+    closestHit.identifiers = uvec4(instanceID, triangleID, 1u, 0u);
+}
+
+void TraverseBLAS(
+    uint instanceID,
+    GPURay worldRay,
+    inout float closestT,
+    inout GPUHit closestHit)
+{
+    GPUInstance instance = instances[instanceID];
+    GPUMeshDescriptor mesh = meshes[instance.meshIndex];
+    GPUBVHDescriptor blas = bvhDescriptors[instance.meshIndex];
+
+    uint nodeIndex = blas.metadata.x;
+    if (nodeIndex == INVALID_INDEX)
+        return;
+
+    uint nodeEnd = blas.ranges.x + blas.ranges.y;
+
+    // Do NOT normalize: local and world rays must share the same t parameter.
+    vec3 localOrigin = (instance.inverseWorldMatrix * vec4(worldRay.origin.xyz, 1.0)).xyz;
+    vec3 localDirection = (instance.inverseWorldMatrix * vec4(worldRay.direction.xyz, 0.0)).xyz;
+
+    // Stackless traversal over preorder nodes; escape skips an entire subtree.
+    while (nodeIndex != INVALID_INDEX && nodeIndex < nodeEnd)
+    {
+        GPUBVHNodeTopology node = bvhTopology[nodeIndex];
+
+        if (!IntersectAABB(localOrigin, localDirection, bvhBounds[nodeIndex], closestT))
+        {
+            nodeIndex = node.primitiveRange.w;
+            continue;
+        }
+
+        if (node.treeTopology.w != 0u)
+        {
+            uint first = node.primitiveRange.x;
+            uint count = node.primitiveRange.y;
+
+            for (uint i = 0u; i < count; ++i)
+            {
+                uint localTriangleIndex = bvhPrimitiveIndices[first + i];
+                IntersectMeshTriangle(
+                    instanceID, instance, mesh, localTriangleIndex,
+                    localOrigin, localDirection, closestT, closestHit);
+            }
+
+            nodeIndex = node.primitiveRange.w;
+        }
+        else
+        {
+            nodeIndex = node.treeTopology.x;
+        }
+    }
+}
+
+// ==================================================
+// TLAS traversal / Closest Hit
+// ==================================================
+
+GPUHit FindClosestHit(GPURay ray)
+{
+    GPUHit closestHit;
+    closestHit.intersection = vec4(MAX_RAY_DISTANCE, 0.0, 0.0, 0.0);
+    closestHit.identifiers = uvec4(0u);
+
+    float closestT = MAX_RAY_DISTANCE;
+
+    GPUBVHDescriptor tlas = bvhDescriptors[uTLASDescriptorIndex];
+    uint nodeIndex = tlas.metadata.x;
+    if (nodeIndex == INVALID_INDEX)
+        return closestHit;
+
+    uint nodeEnd = tlas.ranges.x + tlas.ranges.y;
+
+    while (nodeIndex != INVALID_INDEX && nodeIndex < nodeEnd)
+    {
+        GPUBVHNodeTopology node = bvhTopology[nodeIndex];
+
+        if (!IntersectAABB(ray.origin.xyz, ray.direction.xyz,
+                           bvhBounds[nodeIndex], closestT))
+        {
+            nodeIndex = node.primitiveRange.w;
+            continue;
+        }
+
+        if (node.treeTopology.w != 0u)
+        {
+            uint first = node.primitiveRange.x;
+            uint count = node.primitiveRange.y;
+
+            for (uint i = 0u; i < count; ++i)
+            {
+                uint instanceID = bvhPrimitiveIndices[first + i];
+                if (instanceID >= uInstanceCount)
+                    continue;
+
+                TraverseBLAS(instanceID, ray, closestT, closestHit);
+            }
+
+            nodeIndex = node.primitiveRange.w;
+        }
+        else
+        {
+            nodeIndex = node.treeTopology.x;
+        }
+    }
+
+    return closestHit;
+}
+
+// ==================================================
+// Main
+// ==================================================
+
+void main()
+{
+    uint rayIndex = gl_GlobalInvocationID.x;
+    if (rayIndex >= rayCount)
+        return;
+
+    GPURayWorkItem item = rays[rayIndex];
+
+    if ((item.payload.flags & RAY_ACTIVE) == 0u)
+    {
+        GPUHit missHit;
+        missHit.intersection = vec4(MAX_RAY_DISTANCE, 0.0, 0.0, 0.0);
+        missHit.identifiers = uvec4(0u);
+        hits[rayIndex] = missHit;
+        return;
+    }
+
+    hits[rayIndex] = FindClosestHit(item.ray);
+}

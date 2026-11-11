@@ -27,9 +27,22 @@ namespace bdt
 		uint32 vertexCount{ 0 };     // 메시의 정점 개수
 		uint32 triangleOffset{ 0 };  // 전체 Triangle Buffer에서 이 메시의 시작 인덱스
 		uint32 triangleCount{ 0 };   // 메시의 삼각형 개수
+		uint32 meshType{ 0 };       // ERTMeshType: Static=0, Skinned=1
+		uint32 pad0[3]{ 0 };
 	};
 
-	struct alignas(BDT_STD430_BASE_ALIGNMENT) GPUInstance
+    // Constant material properties for RT. Texture sampling is a separate path.
+    struct alignas(BDT_STD430_BASE_ALIGNMENT) GPURTMaterial
+    {
+        vec4 albedoFactor{ 1.0f };
+        vec4 emission{ 0.0f };
+        float metallicFactor{ 0.0f };
+        float roughnessFactor{ 1.0f };
+        float ior{ 1.5f };
+        float transmission{ 0.0f };
+    };
+
+    struct alignas(BDT_STD430_BASE_ALIGNMENT) GPUInstance
 	{
 		mat4 worldMatrix{ 1.0f };
 		mat4 inverseWorldMatrix{ 1.0f };

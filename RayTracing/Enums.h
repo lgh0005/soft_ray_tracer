@@ -1,8 +1,9 @@
 #pragma once
+#include <Core/Types.h>
 
 namespace bdt
 {
-    enum class ERTStorageBinding
+    enum class ERTStorageBinding : uint8
     {
         // Ray Tracing
         Ray = 0,
@@ -23,14 +24,33 @@ namespace bdt
         NextRayCounter,
         DispatchCommand,
         Accumulation,
+        Material,
+
+        // BVH storage
+        BVHTopology,
+        BVHBounds,
+        BVHPrimitive,
+        BVHDescriptor,
 
         Count
     };
 
-	enum class ERTUniformBinding
+	enum class ERTUniformBinding : uint8
 	{
         Camera = 0,
         RTFrame,
 		Count
 	};
+
+    enum class EBVHBuildMode : uint8
+    {
+        MedianSplit = 0,
+        SAH
+    };
+
+    enum class ERTMeshType : uint32
+    {
+        Static = 0,
+        Skinned
+    };
 }

@@ -25,11 +25,11 @@ layout(std140, binding = 1) uniform MaterialBuffer
     float metallicFactor;
     float roughnessFactor;
     float emissionStrength;
-    float heightScale;
+    float ior;
+    float transmission;
     uint textureFlags;
     uint pad0;
     uint pad1;
-    uint pad2;
 };
 
 const uint TEXTURE_ALBEDO    = 1u << 0u;

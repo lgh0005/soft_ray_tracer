@@ -61,9 +61,6 @@
     <ClInclude Include="KDTree.h">
       <Filter>소스 파일\Accelerates\Spatial</Filter>
     </ClInclude>
-    <ClInclude Include="BSPTree.h">
-      <Filter>소스 파일\Accelerates\Spatial</Filter>
-    </ClInclude>
     <ClInclude Include="RTUniforms.h">
       <Filter>소스 파일\Headers</Filter>
     </ClInclude>
@@ -80,6 +77,12 @@
       <Filter>소스 파일\Storages</Filter>
     </ClInclude>
     <ClInclude Include="RTRayQueue.h">
+      <Filter>소스 파일\Storages</Filter>
+    </ClInclude>
+    <ClInclude Include="RTAccelerates.h">
+      <Filter>소스 파일\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="RTBVHStorage.h">
       <Filter>소스 파일\Storages</Filter>
     </ClInclude>
   </ItemGroup>
@@ -108,9 +111,6 @@
     <ClCompile Include="KDTree.cpp">
       <Filter>소스 파일\Accelerates\Spatial</Filter>
     </ClCompile>
-    <ClCompile Include="BSPTree.cpp">
-      <Filter>소스 파일\Accelerates\Spatial</Filter>
-    </ClCompile>
     <ClCompile Include="RTGeometryStorage.cpp">
       <Filter>소스 파일\Storages</Filter>
     </ClCompile>
@@ -118,6 +118,9 @@
       <Filter>소스 파일\Storages</Filter>
     </ClCompile>
     <ClCompile Include="RTRayQueue.cpp">
+      <Filter>소스 파일\Storages</Filter>
+    </ClCompile>
+    <ClCompile Include="RTBVHStorage.cpp">
       <Filter>소스 파일\Storages</Filter>
     </ClCompile>
   </ItemGroup>

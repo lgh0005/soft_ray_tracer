@@ -24,6 +24,7 @@
 #include <unordered_set>
 #include <queue>
 #include <stack>
+#include <numeric>
 #include <functional>
 #include <optional>
 #include <type_traits>

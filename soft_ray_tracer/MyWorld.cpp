@@ -128,7 +128,6 @@ namespace bdt
 		sphereTextures.normal = BDT_RESOURCE.LoadImage2D("Assets/MetalBall/worn-shiny-metal-Normal-ogl.ktx2");
 		sphereTextures.ao = BDT_RESOURCE.LoadImage2D("Assets/MetalBall/worn-shiny-metal-ao.ktx2");
 		sphereTextures.roughness = BDT_RESOURCE.LoadImage2D("Assets/MetalBall/worn-shiny-metal-Roughness.ktx2");
-		sphereTextures.height = BDT_RESOURCE.LoadImage2D("Assets/MetalBall/worn-shiny-metal-Height.ktx2");
 		sphereTextures.metallic = BDT_RESOURCE.LoadImage2D("Assets/MetalBall/worn-shiny-metal-Metallic.ktx2");
 		auto sphereMaterial = BDT_RESOURCE.LoadMaterial("MyWorld.Sphere", sphereDesc, sphereTextures);
 		auto* sphere = AddPrimitiveActor("Sphere", EPrimitiveType::Sphere, sphereMaterial);
