@@ -6,6 +6,7 @@ namespace bdt
 	BDT_CLASS_PTR(RTBVHBus)
 	BDT_CLASS_PTR(RTBVHRayGenerationPass)
 	BDT_CLASS_PTR(RTBVHSkinningPass)
+	BDT_CLASS_PTR(RTBVHRefitPass)
 	BDT_CLASS_PTR(RTBVHClosestHitPass)
 	BDT_CLASS_PTR(RTBVHSecondaryRayPass)
 	BDT_CLASS_PTR(RTBVHShadingPass)
@@ -38,6 +39,7 @@ namespace bdt
 		// Compute Passes
 		RTBVHRayGenerationPassUPtr m_rayGenPass;
 		RTBVHSkinningPassUPtr m_skinningPass;
+		RTBVHRefitPassUPtr m_refitPass;
 		RTBVHClosestHitPassUPtr m_closestHitPass;
 		RTBVHSecondaryRayPassUPtr m_secondRayPass;
 		RTBVHShadingPassUPtr m_rtShadingPass;

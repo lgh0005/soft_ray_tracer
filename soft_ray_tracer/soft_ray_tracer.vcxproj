@@ -172,11 +172,13 @@ exit /b 0</Command>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MyWorld.cpp" />
     <ClCompile Include="RTBruteForceWorld.cpp" />
+    <ClCompile Include="RTBVHOptimizedWorld.cpp" />
     <ClCompile Include="pch.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MyWorld.h" />
     <ClInclude Include="RTBruteForceWorld.h" />
+    <ClInclude Include="RTBVHOptimizedWorld.h" />
     <ClInclude Include="pch.h" />
   </ItemGroup>
   <ItemGroup>

@@ -187,6 +187,7 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     <ClInclude Include="RTBVHBus.h" />
     <ClInclude Include="RTBVHRayGenerationPass.h" />
     <ClInclude Include="RTBVHSkinningPass.h" />
+    <ClInclude Include="RTBVHRefitPass.h" />
     <ClInclude Include="RTBVHClosestHitPass.h" />
     <ClInclude Include="RTBVHSecondaryRayPass.h" />
     <ClInclude Include="RTBVHShadingPass.h" />
@@ -225,6 +226,7 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     <ClCompile Include="RTBVHBus.cpp" />
     <ClCompile Include="RTBVHRayGenerationPass.cpp" />
     <ClCompile Include="RTBVHSkinningPass.cpp" />
+    <ClCompile Include="RTBVHRefitPass.cpp" />
     <ClCompile Include="RTBVHClosestHitPass.cpp" />
     <ClCompile Include="RTBVHSecondaryRayPass.cpp" />
     <ClCompile Include="RTBVHShadingPass.cpp" />

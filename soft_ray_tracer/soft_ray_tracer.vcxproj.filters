@@ -46,4 +46,15 @@
       <Filter>소스 파일\Worlds\MyWorld</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <Filter Include="소스 파일\Worlds\RTBVHOptimizedWorld">
+      <UniqueIdentifier>{f37a61dc-73b7-43a0-b5d6-a0ea54b3b942}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="RTBVHOptimizedWorld.cpp">
+      <Filter>소스 파일\Worlds\RTBVHOptimizedWorld</Filter>
+    </ClCompile>
+    <ClInclude Include="RTBVHOptimizedWorld.h">
+      <Filter>소스 파일\Worlds\RTBVHOptimizedWorld</Filter>
+    </ClInclude>
+  </ItemGroup>
 </Project>

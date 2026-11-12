@@ -243,6 +243,9 @@
     <ClInclude Include="RTBVHSkinningPass.h">
       <Filter>소스 파일\Pipelines\MyRTBVHOptimized\ComputePasses</Filter>
     </ClInclude>
+    <ClInclude Include="RTBVHRefitPass.h">
+      <Filter>소스 파일\Pipelines\MyRTBVHOptimized\ComputePasses</Filter>
+    </ClInclude>
     <ClInclude Include="RTBVHClosestHitPass.h">
       <Filter>소스 파일\Pipelines\MyRTBVHOptimized\ComputePasses</Filter>
     </ClInclude>
@@ -259,6 +262,9 @@
       <Filter>소스 파일\Pipelines\MyRTBVHOptimized\ComputePasses</Filter>
     </ClCompile>
     <ClCompile Include="RTBVHSkinningPass.cpp">
+      <Filter>소스 파일\Pipelines\MyRTBVHOptimized\ComputePasses</Filter>
+    </ClCompile>
+    <ClCompile Include="RTBVHRefitPass.cpp">
       <Filter>소스 파일\Pipelines\MyRTBVHOptimized\ComputePasses</Filter>
     </ClCompile>
     <ClCompile Include="RTBVHClosestHitPass.cpp">

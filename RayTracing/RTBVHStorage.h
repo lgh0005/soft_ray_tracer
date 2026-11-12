@@ -24,34 +24,53 @@ namespace bdt
 	public:
 		~RTBVHStorage();
 		static RTBVHStorageUPtr Create(EBVHBuildMode buildMode);
-
-		bool Rebuild
-		(
-			const List<RTBVHMeshInput>& meshes,
-			const List<GPUBVHNodeBounds>& instanceBounds,
-			uint32 blasMaxLeafPrimitives = 4,
-			uint32 tlasMaxLeafPrimitives = 1
-		);
 		bool Upload();
 		void Bind() const;
-		void Clear();
 		void Shutdown();
 
+	/*==========================================//
+	//             Clear Operations             //
+	//==========================================*/
+	public:
+		void Clear();
+		bool ClearBLAS();
+		bool ClearTLAS();
+
+	/*==========================================//
+	//               Data Access                //
+	//==========================================*/
+	public:
 		const BLAS* GetBLAS(uint32 meshIndex) const;
 		const TLAS* GetTLAS() const;
 		uint32 GetTLASDescriptorIndex() const;
 		bool IsStorageDirty() const;
 
+	/*==========================================//
+	//               BVH Updates                //
+	//==========================================*/
+	public:
+		bool RebuildBLAS(const List<RTBVHMeshInput>& meshes, uint32 maxLeafPrimitives = 4);
+		bool RebuildTLAS(const List<GPUBVHNodeBounds>& instanceBounds, uint32 maxLeafPrimitives = 1);
+		bool RefitTLAS(const List<GPUBVHNodeBounds>& instanceBounds);
+
 	private:
 		RTBVHStorage();
 		bool Init(EBVHBuildMode buildMode);
+
+	/*==========================================//
+	//           Packing / Upload Helpers       //
+	//==========================================*/
 		bool AppendBVH(const BVH& bvh, uint32 meshIndex);
+		bool UploadBounds();
 		bool UploadBuffers();
+
+	private:
+		bool m_isStorageDirty{ false };
+		bool m_isBoundsDirty{ false };
 
 		List<BLASUPtr> m_blas;
 		TLASUPtr m_tlas{ nullptr };
 		uint32 m_tlasDescIdx{ 0xffffffffu };
-		bool m_isStorageDirty{ false };
 		EBVHBuildMode m_buildMode;
 
 		List<GPUBVHNodeTopology> m_topology;

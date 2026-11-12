@@ -3,11 +3,10 @@
 
 namespace bdt
 {
-    BDT_CLASS_PTR(GLBuffer)
-    BDT_CLASS_PTR(GLStorageBuffer)
     BDT_CLASS_PTR(RenderScreen)
     BDT_CLASS_PTR(RenderTexture2D)
     BDT_CLASS_PTR(RTRayQueue)
+    BDT_CLASS_PTR(RTBVHBuilder)
     BDT_CLASS_PTR(RTBVHBus)
 
     class RTBVHBus : public IRenderBus
@@ -33,17 +32,9 @@ namespace bdt
         RenderTexture2D* GetOutputTexture() const;
         RenderScreen* GetRenderScreen() const;
 
-        // BVH
-        bool PrepareBVH();
-
     private:
         RTBVHBus();
         bool Init();
-        GPUBVHNodeBounds TransformBounds
-        (
-            const GPUBVHNodeBounds& localBounds,
-            const mat4& worldMatrix
-        ) const;
 
     private:
         // Shared Camera Resource
@@ -53,17 +44,8 @@ namespace bdt
         // Ray Tracing Buffers
         RTRayQueueUPtr m_rayQueue{ nullptr };
 
-        // BVH Buffers
-		RTBVHStorageUPtr m_bvhStorage{ nullptr };
-
-        // Mesh별 정점 및 인덱스 캐시
-        List<List<vec3>> m_bvhVertices;
-        List<List<uint32>> m_bvhIndices;
-        List<GPUBVHNodeBounds> m_bvhMeshLocalBounds;
-
-        // BVH 구축 입력
-        List<RTBVHMeshInput> m_bvhMeshInputs;
-        List<GPUBVHNodeBounds> m_bvhInstanceBounds;
+        // BVH Builder
+        RTBVHBuilderUPtr m_bvhBuilder{ nullptr };
 
         // Debug / Final Output
         RenderTexture2DUPtr m_outputTexture;

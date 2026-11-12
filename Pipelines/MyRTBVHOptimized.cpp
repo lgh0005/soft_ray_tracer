@@ -3,6 +3,7 @@
 #include "RTBVHBus.h"
 #include "RTBVHRayGenerationPass.h"
 #include "RTBVHSkinningPass.h"
+#include "RTBVHRefitPass.h"
 #include "RTBVHClosestHitPass.h"
 #include "RTBVHSecondaryRayPass.h"
 #include "RTBVHShadingPass.h"
@@ -45,6 +46,9 @@ namespace bdt
 
 		m_skinningPass = RTBVHSkinningPass::Create();
 		if (!m_skinningPass) return false;
+
+		m_refitPass = RTBVHRefitPass::Create();
+		if (!m_refitPass) return false;
 
 		m_closestHitPass = RTBVHClosestHitPass::Create();
 		if (!m_closestHitPass) return false;
@@ -128,6 +132,7 @@ namespace bdt
 		m_rtShadingPass.reset();
 		m_secondRayPass.reset();
 		m_closestHitPass.reset();
+		m_refitPass.reset();
 		m_skinningPass.reset();
 		m_rayGenPass.reset();
 		m_bus.reset();

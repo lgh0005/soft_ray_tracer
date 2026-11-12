@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "RTBVHBus.h"
+#include <RayTracing/RTBVHBuilder.h>
 
 namespace bdt
 {
@@ -25,8 +26,8 @@ namespace bdt
 
         // Ray Tracing Buffers
         m_rayQueue = RTRayQueue::Create();
-		m_bvhStorage = RTBVHStorage::Create(EBVHBuildMode::MedianSplit);
-        if (!m_rayQueue || !m_bvhStorage) return false;
+        m_bvhBuilder = RTBVHBuilder::Create(EBVHBuildMode::SAH);
+        if (!m_rayQueue || !m_bvhBuilder) return false;
 
         // Shared RenderScreen
         m_screen = RenderScreen::Create(BDT_WINDOW.GetWindowWidth(), BDT_WINDOW.GetWindowHeight());
@@ -53,8 +54,11 @@ namespace bdt
         // 4. Prepare Geometry / Instances
         if (!BDT_INSTANCE.Prepare(scene)) return false;
 
+        // Instance 변경 감지 및 Dirty Flag 설정
+        // (RTBVHBuilder 내부에서 처리)
+
         // 5. Prepare BVH
-		if (!PrepareBVH()) return false;
+		if (!m_bvhBuilder->Prepare()) return false;
 
         // 5. RTFrame UBO
         const uint64 rayCount64 =static_cast<uint64>(width) * height;
@@ -133,7 +137,7 @@ namespace bdt
 
         // Ray Tracing
         m_rayQueue.reset();
-        m_bvhStorage.reset();   
+        m_bvhBuilder.reset();
 
         // Output
         m_outputTexture.reset();
@@ -157,7 +161,8 @@ namespace bdt
 
     RTBVHStorage* RTBVHBus::GetBVHStorage() const
     {
-        return m_bvhStorage.get();
+        if (!m_bvhBuilder) return nullptr;
+        return m_bvhBuilder->GetStorage();
     }
 
     RTRayQueue* RTBVHBus::GetRayQueue() const
@@ -173,147 +178,5 @@ namespace bdt
     RenderScreen* RTBVHBus::GetRenderScreen() const
     {
         return m_screen.get();
-    }
-
-	bool RTBVHBus::PrepareBVH()
-	{
-        if (!m_bvhStorage) return false;
-
-        // 기존 Capacity 유지
-        const uint32 meshCount = BDT_INSTANCE.GetGeometryCount();
-        const uint32 instanceCount = BDT_INSTANCE.GetInstanceCount();
-
-        // 1. BVH 입력 배열 준비
-        m_bvhVertices.resize(meshCount);
-        m_bvhIndices.resize(meshCount);
-        m_bvhMeshLocalBounds.resize(meshCount);
-        m_bvhMeshInputs.clear();
-        m_bvhInstanceBounds.clear();
-        m_bvhMeshInputs.reserve(meshCount);
-        m_bvhInstanceBounds.reserve(instanceCount);
-
-        // 2. Mesh별 BLAS 입력 데이터 수집
-        for (uint32 meshIndex = 0; meshIndex < meshCount; ++meshIndex)
-        {
-            const MeshPtr& mesh = BDT_INSTANCE.GetMesh(meshIndex);
-            const GPUMeshDescriptor& descriptor = BDT_INSTANCE.GetMeshDescriptor(meshIndex);
-            List<vec3>& vertices = m_bvhVertices[meshIndex];
-            List<uint32>& indices = m_bvhIndices[meshIndex];
-            vertices.clear();
-            indices.clear();
-
-            switch (static_cast<ERTMeshType>(descriptor.meshType))
-            {
-                case ERTMeshType::Static:
-                {
-                    const StaticMesh* staticMesh = static_cast<const StaticMesh*>(mesh.get());
-                    const List<GLStaticVertex>& sourceVertices = staticMesh->GetVertices();
-                    const List<uint32>& sourceIndices = staticMesh->GetIndices();
-                    vertices.reserve(sourceVertices.size());
-
-                    for (const GLStaticVertex& vertex : sourceVertices)
-                        vertices.push_back(vertex.position);
-
-                    indices.assign(sourceIndices.begin(), sourceIndices.end());
-                    break;
-                }
-
-                case ERTMeshType::Skinned:
-                {
-                    const SkinnedMesh* skinnedMesh = static_cast<const SkinnedMesh*>(mesh.get());
-                    const List<GLSkinnedVertex>& sourceVertices = skinnedMesh->GetVertices();
-                    const List<uint32>& sourceIndices = skinnedMesh->GetIndices();
-                    vertices.reserve(sourceVertices.size());
-
-                    for (const GLSkinnedVertex& vertex : sourceVertices)
-                        vertices.push_back(vertex.position);
-
-                    indices.assign(sourceIndices.begin(), sourceIndices.end());
-                    break;
-                }
-
-                default:
-                    return false;
-            }
-
-            if (vertices.empty() || indices.empty())
-                return false;
-
-            // 3. Mesh별 Local AABB 계산
-            vec3 minBounds(MaxValue<float>);
-            vec3 maxBounds(MinValue<float>);
-            for (const vec3& position : vertices)
-            {
-                minBounds = glm::min(minBounds, position);
-                maxBounds = glm::max(maxBounds, position);
-            }
-
-            GPUBVHNodeBounds& localBounds = m_bvhMeshLocalBounds[meshIndex];
-            localBounds.aabbMin = vec4(minBounds, 0.0f);
-            localBounds.aabbMax = vec4(maxBounds, 0.0f);
-
-            // 4. BLAS 구축 입력 등록
-            m_bvhMeshInputs.push_back({meshIndex, &vertices, &indices});
-        }
-
-        // 5. Instance별 TLAS 입력 데이터 수집
-        const List<GPUInstance>& instances = BDT_INSTANCE.GetInstances();
-
-        for (const GPUInstance& instance : instances)
-        {
-            if (instance.meshIndex >= meshCount)
-                return false;
-
-            const GPUBVHNodeBounds& localBounds =
-                m_bvhMeshLocalBounds[instance.meshIndex];
-
-            m_bvhInstanceBounds.push_back(
-                TransformBounds(localBounds, instance.worldMatrix)
-            );
-        }
-
-        // 6. BLAS / TLAS 구축
-        if (!m_bvhStorage->Rebuild(
-            m_bvhMeshInputs,
-            m_bvhInstanceBounds))
-        {
-            return false;
-        }
-
-        // 7. GPU 업로드
-        return m_bvhStorage->Upload();
-	}
-
-    GPUBVHNodeBounds RTBVHBus::TransformBounds
-    (
-        const GPUBVHNodeBounds& localBounds,
-        const mat4& worldMatrix
-    ) const
-    {
-        const vec3 localMin(localBounds.aabbMin);
-        const vec3 localMax(localBounds.aabbMax);
-        vec3 worldMin(MaxValue<float>);
-        vec3 worldMax(MinValue<float>);
-
-        // AABB의 여덟 꼭짓점을 World Space로 변환
-        for (uint32 i = 0; i < 8; ++i)
-        {
-            const vec3 corner
-            (
-                (i & 1u) ? localMax.x : localMin.x,
-                (i & 2u) ? localMax.y : localMin.y,
-                (i & 4u) ? localMax.z : localMin.z
-            );
-
-            const vec3 worldPosition = vec3(worldMatrix * vec4(corner, 1.0f));
-            worldMin = glm::min(worldMin, worldPosition);
-            worldMax = glm::max(worldMax, worldPosition);
-        }
-
-        GPUBVHNodeBounds result{};
-        result.aabbMin = vec4(worldMin, 0.0f);
-        result.aabbMax = vec4(worldMax, 0.0f);
-
-        return result;
     }
 }

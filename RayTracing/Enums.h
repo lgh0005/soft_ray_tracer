@@ -53,4 +53,12 @@ namespace bdt
         Static = 0,
         Skinned
     };
+
+    enum class EBVHDirtyFlag : uint32
+    {
+        None      = 0,
+        BLAS      = 1u << 0,
+        TLAS      = 1u << 1,
+        TLASRefit = 1u << 2
+    };
 }

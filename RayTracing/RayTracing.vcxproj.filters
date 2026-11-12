@@ -85,6 +85,9 @@
     <ClInclude Include="RTBVHStorage.h">
       <Filter>소스 파일\Storages</Filter>
     </ClInclude>
+    <ClInclude Include="RTBVHBuilder.h">
+      <Filter>소스 파일\Storages</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -121,6 +124,9 @@
       <Filter>소스 파일\Storages</Filter>
     </ClCompile>
     <ClCompile Include="RTBVHStorage.cpp">
+      <Filter>소스 파일\Storages</Filter>
+    </ClCompile>
+    <ClCompile Include="RTBVHBuilder.cpp">
       <Filter>소스 파일\Storages</Filter>
     </ClCompile>
   </ItemGroup>

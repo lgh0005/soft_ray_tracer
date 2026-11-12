@@ -12,6 +12,7 @@
 #include "RTGeometry.h"
 #include "RTRayQueue.h"
 #include "RTBVHStorage.h"
+#include "RTBVHBuilder.h"
 
 // Accelerates
 #include "TLAS.h"
