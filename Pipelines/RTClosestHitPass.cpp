@@ -28,16 +28,16 @@ namespace bdt
         return true;
     }
 
-    void RTClosestHitPass::Execute(IRenderBus& bus)
+    bool RTClosestHitPass::Execute(IRenderBus& bus)
     {
         auto& rtBus = static_cast<RTBruteForceBus&>(bus);
 
         const auto shader = m_closestHitShader.Get();
-        if (!shader || !shader->IsValid()) return;
+        if (!shader || !shader->IsValid()) return false;
 
         // 1. Ray Queue
         RTRayQueue* queue = rtBus.GetRayQueue();
-        if (!queue) return;
+        if (!queue) return false;
 
         // 2. Current Ray / Hit / Counter
         queue->BindRayBuffer();
@@ -65,6 +65,7 @@ namespace bdt
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
         ComputeShader::Unbind();
+        return true;
     }
 
     void RTClosestHitPass::Shutdown()

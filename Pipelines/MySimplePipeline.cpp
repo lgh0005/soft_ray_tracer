@@ -58,11 +58,11 @@ namespace bdt
 			return;
 
 		// 렌더링 파이프라이닝
-		m_shadowPass->Execute(*m_bus);
-		m_geometryPass->Execute(*m_bus);
-		m_deferredShadingPass->Execute(*m_bus);
-		m_skyboxPass->Execute(*m_bus);
-		m_postProcessingPass->Execute(*m_bus);
+		if (!m_shadowPass->Execute(*m_bus)) return;
+		if (!m_geometryPass->Execute(*m_bus)) return;
+		if (!m_deferredShadingPass->Execute(*m_bus)) return;
+		if (!m_skyboxPass->Execute(*m_bus)) return;
+		if (!m_postProcessingPass->Execute(*m_bus)) return;
 	}
 
 	void MySimplePipeline::Shutdown()

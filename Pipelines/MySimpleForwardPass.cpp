@@ -22,7 +22,7 @@ namespace bdt
 		m_initialized = true;
 		return true;
 	}
-	void MySimpleForwardPass::Execute(IRenderBus& bus)
+	bool MySimpleForwardPass::Execute(IRenderBus& bus)
 	{
 		//auto* simpleBus = dynamic_cast<MySimpleBus*>(&bus);
 		//if (!simpleBus || !m_initialized || !simpleBus->GetRenderScene() || !bus.GetWidth() || !bus.GetHeight()) return;
@@ -59,6 +59,7 @@ namespace bdt
 		//// 불투명 씬 전체를 그리는 Forward 대체 경로. 투명 정렬은 별도 계약이다.
 		//simpleBus->ExecuteRenderQueues(staticShader, skinnedShader);
 		//simpleBus->SetSceneColorReady();
+		return true;
 	}
 	void MySimpleForwardPass::Shutdown()
 	{

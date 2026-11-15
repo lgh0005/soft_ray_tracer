@@ -27,11 +27,10 @@ namespace bdt
 		uint32 vertexCount{ 0 };     // 메시의 정점 개수
 		uint32 triangleOffset{ 0 };  // 전체 Triangle Buffer에서 이 메시의 시작 인덱스
 		uint32 triangleCount{ 0 };   // 메시의 삼각형 개수
-		uint32 meshType{ 0 };       // ERTMeshType: Static=0, Skinned=1
+		uint32 meshType{ 0 };        // ERTMeshType: Static=0, Skinned=1
 		uint32 pad0[3]{ 0 };
 	};
 
-    // Constant material properties for RT. Texture sampling is a separate path.
     struct alignas(BDT_STD430_BASE_ALIGNMENT) GPURTMaterial
     {
         vec4 albedoFactor{ 1.0f };
@@ -40,12 +39,22 @@ namespace bdt
         float roughnessFactor{ 1.0f };
         float ior{ 1.5f };
         float transmission{ 0.0f };
+
+        uint32 albedoTextureIndex{ MaxValue<uint32> };
+        uint32 normalTextureIndex{ MaxValue<uint32> };
+        uint32 aoTextureIndex{ MaxValue<uint32> };
+        uint32 roughnessTextureIndex{ MaxValue<uint32> };
+        uint32 emissionTextureIndex{ MaxValue<uint32> };
+        uint32 reservedTextureIndex{ MaxValue<uint32> };
+        uint32 metallicTextureIndex{ MaxValue<uint32> };
+        uint32 specularTextureIndex{ MaxValue<uint32> }; // RT에서는 아직 사용하지 않음
     };
 
     struct alignas(BDT_STD430_BASE_ALIGNMENT) GPUInstance
 	{
 		mat4 worldMatrix{ 1.0f };
 		mat4 inverseWorldMatrix{ 1.0f };
+
 		uint32 meshIndex{ 0 };
 		uint32 materialIndex{ 0 };
 		uint32 boneOffset{ 0 };
@@ -53,7 +62,7 @@ namespace bdt
 
 		// GPU Skinning
 		uint32 skinnedVertexOffset;
-		uint32 pad0;
+		uint32 blasBoundsOffset{ MaxValue<uint32> };
 		uint32 pad1;
 		uint32 pad2;
 	};

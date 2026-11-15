@@ -38,36 +38,37 @@ namespace bdt
 		return true;
 	}
 
-    void MySimpleShadowPass::Execute(IRenderBus& bus)
+    bool MySimpleShadowPass::Execute(IRenderBus& bus)
     {
         auto* shadowBus = static_cast<MySimpleBus*>(&bus);
         const RenderScene* scene = shadowBus->GetRenderScene();
+        if (!scene) return false;
         const auto& shadows = scene->GetShadows();
-        if (shadows.empty()) return;
+        if (shadows.empty()) return true;
 
         // 1. Shadow Target Array 준비
 		uint32 layerCount = 0;
 		for (const ShadowData& shadow : shadows)
 		{
-			if (shadow.shadowMapIndex == UINT32_MAX) return;
+			if (shadow.shadowMapIndex == UINT32_MAX) return false;
 			layerCount = std::max(layerCount, shadow.shadowMapIndex + 1);
 		}
 
 		if (!shadowBus->PrepareShadowTarget(m_resolution, layerCount)) 
-			return;
+			return false;
 
         Framebuffer2D* framebuffer = shadowBus->GetShadowFramebuffer();
-        if (!framebuffer) return;
-
-        // 2. Shadow Rendering 상태 설정
-        framebuffer->Bind();
-        glViewport(0, 0, static_cast<GLsizei>(m_resolution), static_cast<GLsizei>(m_resolution));
+        if (!framebuffer) return false;
 
 		// 3. Shadow Shader 준비
 		auto staticShader = m_shadowShaderStatic.Get();
 		auto skinnedShader = m_shadowShaderSkinned.Get();
-		if (!staticShader || !staticShader->IsValid()) return;
-		if (!skinnedShader || !skinnedShader->IsValid()) return;
+		if (!staticShader || !staticShader->IsValid()) return false;
+		if (!skinnedShader || !skinnedShader->IsValid()) return false;
+
+        // 셰이더 미준비로 반환할 때 FBO 상태를 변경하지 않는다.
+        framebuffer->Bind();
+        glViewport(0, 0, static_cast<GLsizei>(m_resolution), static_cast<GLsizei>(m_resolution));
 
         // 7. 광원 Shadow Map 인스턴싱
 		glEnable(GL_POLYGON_OFFSET_FILL);
@@ -80,6 +81,10 @@ namespace bdt
 		shadowBus->ExecuteShadowRenderQueues(staticShader, skinnedShader);
 
 		glDisable(GL_POLYGON_OFFSET_FILL);
+        GraphicsShader::Unbind();
+        framebuffer->Unbind();
+        glViewport(0, 0, static_cast<GLsizei>(bus.GetWidth()), static_cast<GLsizei>(bus.GetHeight()));
+        return true;
     }
 
 	void MySimpleShadowPass::Shutdown()

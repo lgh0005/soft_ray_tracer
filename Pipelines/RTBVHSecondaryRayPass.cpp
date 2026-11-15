@@ -35,20 +35,20 @@ namespace bdt
 		return true;
 	}
 
-	void RTBVHSecondaryRayPass::Execute(IRenderBus& bus)
+	bool RTBVHSecondaryRayPass::Execute(IRenderBus& bus)
 	{
 		auto& rtBus = static_cast<RTBVHBus&>(bus);
 		RTRayQueue* queue = rtBus.GetRayQueue();
-		if (!queue) return;
+		if (!queue) return false;
 
 		auto secondaryShader = m_secondaryRayShader.Get();
 		auto prepareShader = m_prepareDispatchShader.Get();
 		if (!secondaryShader || !secondaryShader->IsValid() ||
-			!prepareShader   || !prepareShader->IsValid()) return;
+			!prepareShader   || !prepareShader->IsValid()) return false;
 
 		// 1. Reset Next Ray Counter
 		if (!queue->ResetNextRayCounter())
-			return;
+			return false;
 
 		// 2. Current Ray / Hit
 		queue->BindRayBuffer();
@@ -93,6 +93,7 @@ namespace bdt
 		// 9. Cleanup
 		queue->UnbindDispatchCommandBuffer();
 		ComputeShader::Unbind();
+		return true;
 	}
 
 	void RTBVHSecondaryRayPass::Shutdown()

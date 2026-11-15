@@ -77,7 +77,9 @@ namespace bdt
 
 	void MyRTBVHOptimized::Render(const RenderScene& scene, uint32 width, uint32 height)
 	{
-		if (width == 0 || height == 0 || !m_bus) return;
+		// 0. 최소화 상태 및 초기화 여부 확인
+		if (width == 0 || height == 0 || !m_bus)
+			return;
 
 		// 1. 프레임 공통 자원 준비
 		const uint32 traceWidth = GetTraceDimension(width);
@@ -87,42 +89,36 @@ namespace bdt
 		if (!queue) return;
 
 		// 2. GPU Skinning
-		m_skinningPass->Execute(*m_bus);
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+		if (!m_skinningPass->Execute(*m_bus)) return;
 
-		// 3. BVH 준비
-		// TODO: BVH Build / Refit / Upload 및 Closest Hit용 BVH SSBO 준비
+		// 3. GPU BLAS / TLAS Refit
+		if (!m_refitPass->Execute(*m_bus)) return;
 
 		// 4. Primary Ray Generation
-		m_rayGenPass->Execute(*m_bus);
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+		if (!m_rayGenPass->Execute(*m_bus)) return;
 
 		// 5. Bounce Loop
 		for (uint32 bounce = 0; bounce <= MaxBounces; ++bounce)
 		{
 			// BVH Traversal
-			m_closestHitPass->Execute(*m_bus);
-			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			if (!m_closestHitPass->Execute(*m_bus)) return;
 
 			// Shading
-			m_rtShadingPass->Execute(*m_bus);
-			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
+			if (!m_rtShadingPass->Execute(*m_bus)) return;
 			if (bounce == MaxBounces) break;
 
 			// Secondary Ray Generation
-			m_secondRayPass->Execute(*m_bus);
+			if (!m_secondRayPass->Execute(*m_bus)) return;
 
 			// Ray Queue Swap
 			queue->SwapQueues();
 		}
 
 		// 6. Image Resolve
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-		m_imageResolvePass->Execute(*m_bus);
+		if (!m_imageResolvePass->Execute(*m_bus)) return;
 
 		// 7. Output
-		m_outputPass->Execute(*m_bus);
+		if (!m_outputPass->Execute(*m_bus)) return;
 	}
 
 	void MyRTBVHOptimized::Shutdown()

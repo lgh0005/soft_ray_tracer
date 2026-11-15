@@ -13,7 +13,7 @@ namespace bdt
     public:
         virtual ~RTSkinningPass() override;
         static RTSkinningPassUPtr Create();
-        virtual void Execute(IRenderBus& bus) override;
+        virtual bool Execute(IRenderBus& bus) override;
         void Shutdown();
 
     private:

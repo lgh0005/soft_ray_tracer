@@ -10,7 +10,7 @@ namespace bdt
 	public:
 		virtual ~RTSecondaryRayPass() override;
 		static RTSecondaryRayPassUPtr Create();
-		virtual void Execute(IRenderBus& bus) override;
+		virtual bool Execute(IRenderBus& bus) override;
 		virtual void Shutdown() override;
 
 	private:

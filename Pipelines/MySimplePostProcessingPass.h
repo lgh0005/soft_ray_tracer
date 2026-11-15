@@ -17,7 +17,7 @@ namespace bdt
 	public:
 		virtual ~MySimplePostProcessingPass() override;
 		static MySimplePostProcessingPassUPtr Create();
-		void Execute(IRenderBus& bus) override;
+		bool Execute(IRenderBus& bus) override;
 		void Shutdown() override;
 
 		void SetBloomThreshold(float threshold);

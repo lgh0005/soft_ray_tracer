@@ -14,7 +14,7 @@ namespace bdt
 	public:
 		virtual ~MySimpleGeometryPass() override;
 		static MySimpleGeometryPassUPtr Create();
-		virtual void Execute(IRenderBus& bus) override;
+		virtual bool Execute(IRenderBus& bus) override;
 		virtual void Shutdown() override;
 
 	private:

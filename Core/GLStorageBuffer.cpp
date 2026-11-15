@@ -68,6 +68,15 @@ namespace bdt
         m_buffer->BindBase(GL_SHADER_STORAGE_BUFFER, slot);
     }
 
+    void GLStorageBuffer::BindRange(uint32 slot) const
+    {
+        // 유효 데이터 범위만 노출하여 GLSL 배열 length가 capacity를 세지 않도록 한다.
+        // OpenGL은 0바이트 범위를 허용하지 않으므로 빈 데이터는 최소 범위로 바인딩한다.
+        uint32 byteSize = m_size;
+        if (byteSize == 0) byteSize = 1;
+        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, slot, m_buffer->GetBufferID(), 0, byteSize);
+    }
+
     void GLStorageBuffer::Unbind(uint32 slot)
     {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, slot, 0);

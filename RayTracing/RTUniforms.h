@@ -8,7 +8,7 @@ namespace bdt
 	{
 		uint32 rayCount{ 0 };
 		uint32 instanceCount{ 0 };
-		uint32 pad0{ 0 };
+		uint32 tlasDescriptorIndex{ MaxValue<uint32> };
 		uint32 pad1{ 0 };
 	};
 }

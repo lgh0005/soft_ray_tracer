@@ -17,7 +17,7 @@
 //		~MySimpleSSAOPass() override;
 //		static MySimpleSSAOPassUPtr Create();
 //		bool Init() override;
-//		void Execute(IRenderBus& bus) override;
+//		bool Execute(IRenderBus& bus) override;
 //		void Shutdown() override;
 //		void SetRadius(float radius);
 //		void SetBias(float bias);

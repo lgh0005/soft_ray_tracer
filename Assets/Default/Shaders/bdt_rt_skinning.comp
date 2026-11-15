@@ -1,22 +1,7 @@
 
 #version 460 core
 
-layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
-
-// ==================================================
-// Geometry Structures
-// ==================================================
-
-struct GPUSkinnedVertex
-{
-    vec4 position;
-    vec4 normal;
-    vec4 tangent;
-    vec4 uv;
-
-    uvec4 boneIndices;
-    vec4 boneWeights;
-};
+//[수정] C++ GPU 데이터 배치와 맞춘 구조체 직접 선언
 
 struct GPUStaticVertex
 {
@@ -37,8 +22,6 @@ struct GPUMeshDescriptor
     uint pad2;
 };
 
-const uint MESH_TYPE_SKINNED = 1u; // ERTMeshType::Skinned
-
 struct GPUInstance
 {
     mat4 worldMatrix;
@@ -50,10 +33,29 @@ struct GPUInstance
     uint boneCount;
 
     uint skinnedVertexOffset;
-    uint pad0;
+    uint blasBoundsOffset;
     uint pad1;
     uint pad2;
 };
+
+struct GPUSkinnedVertex
+{
+    vec4 position;
+    vec4 normal;
+    vec4 tangent;
+    vec4 uv;
+
+    uvec4 boneIndices;
+    vec4 boneWeights;
+};
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+// ==================================================
+// Geometry Structures
+// ==================================================
+
+const uint MESH_TYPE_SKINNED = 1u; // ERTMeshType::Skinned
 
 // ==================================================
 // Frame UBO
@@ -63,7 +65,7 @@ layout(std140, binding = 1) uniform RTFrameData
 {
     uint uRayCount;
     uint uInstanceCount;
-    uint _pad0;
+    uint uTLASDescriptorIndex;
     uint _pad1;
 };
 
@@ -71,32 +73,32 @@ layout(std140, binding = 1) uniform RTFrameData
 // SSBO
 // ==================================================
 
-// Binding 4: Mesh Descriptors
-layout(std430, binding = 4) readonly buffer MeshBuffer
+// Binding 5: Mesh Descriptors
+layout(std430, binding = 5) readonly buffer MeshBuffer
 {
     GPUMeshDescriptor meshes[];
 };
 
-// Binding 5: Instances
-layout(std430, binding = 5) readonly buffer InstanceBuffer
+// Binding 6: Instances
+layout(std430, binding = 6) readonly buffer InstanceBuffer
 {
     GPUInstance instances[];
 };
 
-// Binding 6: Original Skinned Vertices
-layout(std430, binding = 6) readonly buffer SkinnedVertexBuffer
+// Binding 7: Original Skinned Vertices
+layout(std430, binding = 7) readonly buffer SkinnedVertexBuffer
 {
     GPUSkinnedVertex skinnedVertices[];
 };
 
-// Binding 7: Bone Matrices
-layout(std430, binding = 7) readonly buffer BoneBuffer
+// Binding 8: Bone Matrices
+layout(std430, binding = 8) readonly buffer BoneBuffer
 {
     mat4 boneMatrices[];
 };
 
-// Binding 8: Skinned Output
-layout(std430, binding = 8) writeonly buffer SkinnedOutputBuffer
+// Binding 9: Skinned Output
+layout(std430, binding = 9) writeonly buffer SkinnedOutputBuffer
 {
     GPUStaticVertex outputVertices[];
 };

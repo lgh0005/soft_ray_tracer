@@ -2,7 +2,7 @@
 #include "InstanceManager.h"
 #include "RTGeometryStorage.h"
 #include "RTInstanceStorage.h"
-#include "Enums.h"
+#include "RTMaterialStorage.h"
 
 namespace bdt
 {
@@ -13,36 +13,30 @@ namespace bdt
     {
         m_geometryStorage = RTGeometryStorage::Create();
         m_instanceStorage = RTInstanceStorage::Create();
-        m_materialBuffer = GLStorageBuffer::Create();
-        if (!m_geometryStorage || !m_instanceStorage || !m_materialBuffer) return false;
+        m_materialStorage = RTMaterialStorage::Create();
+        if (!m_geometryStorage || !m_instanceStorage || !m_materialStorage) return false;
+
         return true;
     }
 
     void InstanceManager::Shutdown()
     {
-        if (m_geometryStorage) m_geometryStorage->Shutdown();
-        m_geometryStorage.reset();
-        if (m_instanceStorage) m_instanceStorage->Shutdown();
-        m_instanceStorage.reset();
-        m_materialBuffer.reset();
-        m_materials.clear();
-        m_materialIndices.clear();
+        m_geometryStorage->Shutdown();
+        m_instanceStorage->Shutdown();
+        m_materialStorage->Shutdown();
     }
 
     bool InstanceManager::Prepare(const RenderScene& scene)
     {
-        // Instance와 Bone Matrix만 프레임마다 초기화
+        // 머티리얼 GPU 표현은 유지하고 Instance / Bone Matrix만 프레임마다 초기화
         ClearInstances();
-        m_materials.clear();
-        m_materialIndices.clear();
-        uint32 defaultMaterialIndex = 0;
-        if (!RegisterMaterial(nullptr, defaultMaterialIndex)) return false;
 
         // RenderScene의 개별 RenderObject
         for (const RenderObject* object : scene.GetObjects())
         {
             if (!object) continue;
-            if (!AppendRenderObject(*object)) return false;
+            if (!AppendRenderObject(*object))
+                return false;
         }
 
         // RenderScene의 RenderObject 그룹
@@ -51,11 +45,12 @@ namespace bdt
             if (!group) continue;
             for (const RenderObject& object : *group)
             {
-                if (!AppendRenderObject(object)) return false;
+                if (!AppendRenderObject(object))
+                    return false;
             }
         }
 
-        return Upload();
+        return true;
     }
 
     bool InstanceManager::AppendRenderObject(const RenderObject& object)
@@ -81,17 +76,18 @@ namespace bdt
         instance.worldMatrix = object.GetWorldMatrix();
         instance.inverseWorldMatrix = glm::inverse(instance.worldMatrix);
         instance.meshIndex = geometryIndex;
+        instance.blasBoundsOffset = MaxValue<uint32>;
 
-        const auto material = object.GetMaterial().Get();
-        if (!RegisterMaterial(material.get(), instance.materialIndex)) return false;
+        instance.materialIndex = m_materialStorage->RegisterMaterial(object.GetMaterial());
+        if (instance.materialIndex == MaxValue<uint32>) return false;
 
         // 5. Skinning 데이터 등록
         if (object.IsSkinned())
         {
             // 5-1. Bone Matrix 등록
+            if (!boneMatrices) return false;
             uint32 boneOffset = 0;
-            if (!AppendBoneMatrices(*boneMatrices, boneOffset))
-                return false;
+            if (!AppendBoneMatrices(*boneMatrices, boneOffset)) return false;
 
             instance.boneOffset = boneOffset;
             instance.boneCount = static_cast<uint32>(boneMatrices->size());
@@ -110,53 +106,26 @@ namespace bdt
 
         // 6. GPUInstance 등록
         uint32 instanceIndex = 0;
-        if (!AddInstance(instance, instanceIndex)) return false;
+        if (!AddInstance(instance, instanceIndex, &object)) return false;
 
-        return true;
-    }
-
-    bool InstanceManager::RegisterMaterial(const Material* material, uint32& index)
-    {
-        // TODO : 코드 정리 필요
-        const auto found = m_materialIndices.find(material);
-        if (found != m_materialIndices.end())
-        {
-            index = found->second;
-            return true;
-        }
-        if (m_materials.size() >= MaxValue<uint32> / sizeof(GPURTMaterial)) return false;
-        const MaterialDesc desc = material ? material->GetDesc() : MaterialDesc{};
-        GPURTMaterial data{};
-        data.albedoFactor = desc.albedoFactor;
-        data.emission = vec4(desc.emissiveFactor * desc.emissionStrength, 0.0f);
-        data.metallicFactor = std::isfinite(desc.metallicFactor) ? glm::clamp(desc.metallicFactor, 0.0f, 1.0f) : 0.0f;
-        data.roughnessFactor = std::isfinite(desc.roughnessFactor) ? glm::clamp(desc.roughnessFactor, 0.0f, 1.0f) : 1.0f;
-        data.ior = std::isfinite(desc.ior) && desc.ior > 0.0f ? desc.ior : 1.5f;
-        data.transmission = std::isfinite(desc.transmission) ? glm::clamp(desc.transmission, 0.0f, 1.0f) : 0.0f;
-        index = static_cast<uint32>(m_materials.size());
-        m_materials.push_back(data);
-        m_materialIndices.emplace(material, index);
         return true;
     }
 
     void InstanceManager::BindMaterialBuffer() const
     {
-        m_materialBuffer->Bind(static_cast<uint32>(ERTStorageBinding::Material));
+        m_materialStorage->Bind();
     }
 
     uint32 InstanceManager::GetMaterialCount() const
     {
-        return static_cast<uint32>(m_materials.size());
+        return m_materialStorage->GetMaterialCount();
     }
 
     bool InstanceManager::Upload()
     {
         if (!UploadGeometry()) return false;
         if (!UploadInstances()) return false;
-        const uint64 bytes = static_cast<uint64>(m_materials.size()) * sizeof(GPURTMaterial);
-        if (bytes > MaxValue<uint32> ||
-            !m_materialBuffer->Update(m_materials.data(), static_cast<uint32>(bytes))) return false;
-        return true;
+        return m_materialStorage->Upload();
     }
 
     /*==================================//
@@ -165,6 +134,7 @@ namespace bdt
     void InstanceManager::ClearGeometry()
     {
         m_geometryStorage->Clear();
+        m_materialStorage->Clear();
     }
 
     bool InstanceManager::RegisterMesh(const MeshPtr& mesh, bool isSkinned, uint32& idx)
@@ -230,9 +200,19 @@ namespace bdt
         return m_instanceStorage->GetInstances();
     }
 
-    bool InstanceManager::AddInstance(const GPUInstance& instance, uint32& idx)
+    const List<mat4>& InstanceManager::GetBoneMatrices() const
     {
-        return m_instanceStorage->AddInstance(instance, idx);
+        return m_instanceStorage->GetBoneMatrices();
+    }
+    
+    const List<const RenderObject*>& InstanceManager::GetInstanceSources() const
+    {
+        return m_instanceStorage->GetInstanceSources();
+    }
+    
+    bool InstanceManager::AddInstance(const GPUInstance& instance, uint32& idx, const RenderObject* source)
+    {
+        return m_instanceStorage->AddInstance(instance, idx, source);
     }
 
     bool InstanceManager::AppendBoneMatrices(const List<mat4>& matrices, uint32& offset)
@@ -265,6 +245,11 @@ namespace bdt
         return m_instanceStorage->AllocateSkinnedVertices(vertexCount, vertexOffset);
     }
 
+    bool InstanceManager::UpdateBLASBoundsOffsets( const List<uint32>& offsets)
+    {
+        return m_instanceStorage->UpdateBLASBoundsOffsets(offsets);
+    }
+
     void InstanceManager::BindSkinnedOutputBuffer() const
     {
         m_instanceStorage->BindSkinnedOutputBuffer();
@@ -278,5 +263,4 @@ namespace bdt
     {
         return m_instanceStorage->GetMaxSkinnedVertexCount();
     }
-
 }

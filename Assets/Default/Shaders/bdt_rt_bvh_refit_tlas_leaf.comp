@@ -1,0 +1,168 @@
+//[수정] 신규 셰이더: BLAS Root를 World Space로 변환하여 TLAS Leaf 갱신
+#version 460 core
+
+//[수정] C++ GPU 데이터 배치와 맞춘 구조체 직접 선언
+
+struct GPUMeshDescriptor
+{
+    uint vertexOffset;
+    uint vertexCount;
+    uint triangleOffset;
+    uint triangleCount;
+    uint meshType;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPUInstance
+{
+    mat4 worldMatrix;
+    mat4 inverseWorldMatrix;
+
+    uint meshIndex;
+    uint materialIndex;
+    uint boneOffset;
+    uint boneCount;
+
+    uint skinnedVertexOffset;
+    uint blasBoundsOffset;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPUBVHNodeTopology
+{
+    uvec4 treeTopology;
+    uvec4 primitiveRange;
+};
+
+struct GPUBVHNodeBounds
+{
+    vec4 aabbMin;
+    vec4 aabbMax;
+};
+
+struct GPUBVHDescriptor
+{
+    uvec4 ranges;
+    uvec4 metadata;
+};
+
+layout(local_size_x = 64) in;
+
+const uint INVALID_INDEX = 0xffffffffu;
+const uint MESH_TYPE_SKINNED = 1u;
+const float MAX_FLOAT = 3.402823466e+38;
+
+layout(std430, binding = 5) readonly buffer MeshBuffer
+{
+    GPUMeshDescriptor meshes[];
+};
+layout(std430, binding = 6) readonly buffer InstanceBuffer
+{
+    GPUInstance instances[];
+};
+layout(std430, binding = 16) readonly buffer BVHTopologyBuffer
+{
+    GPUBVHNodeTopology bvhTopology[];
+};
+layout(std430, binding = 17) buffer BVHBoundsBuffer
+{
+    GPUBVHNodeBounds bvhBounds[];
+};
+layout(std430, binding = 18) readonly buffer BVHPrimitiveBuffer
+{
+    uint bvhPrimitiveIndices[];
+};
+layout(std430, binding = 19) readonly buffer BVHDescriptorBuffer
+{
+    GPUBVHDescriptor bvhDescriptors[];
+};
+layout(std430, binding = 20) readonly buffer BVHSkinnedBoundsBuffer
+{
+    GPUBVHNodeBounds skinnedBVHBounds[];
+};
+
+layout(std140, binding = 1) uniform RTFrameData
+{
+    uint uRayCount;
+    uint uInstanceCount;
+    uint uTLASDescriptorIndex;
+    uint _pad1;
+};
+
+//[수정] Local AABB의 8개 꼭짓점을 World Space로 변환
+GPUBVHNodeBounds TransformBounds(GPUBVHNodeBounds localBounds, mat4 worldMatrix)
+{
+    vec3 localMin = localBounds.aabbMin.xyz;
+    vec3 localMax = localBounds.aabbMax.xyz;
+    vec3 worldMin = vec3(MAX_FLOAT);
+    vec3 worldMax = vec3(-MAX_FLOAT);
+
+    for (uint i = 0u; i < 8u; ++i)
+    {
+        vec3 corner = vec3(
+            (i & 1u) != 0u ? localMax.x : localMin.x,
+            (i & 2u) != 0u ? localMax.y : localMin.y,
+            (i & 4u) != 0u ? localMax.z : localMin.z);
+        vec3 p = (worldMatrix * vec4(corner, 1.0)).xyz;
+        worldMin = min(worldMin, p);
+        worldMax = max(worldMax, p);
+    }
+
+    GPUBVHNodeBounds result;
+    result.aabbMin = vec4(worldMin, 0.0);
+    result.aabbMax = vec4(worldMax, 0.0);
+    return result;
+}
+
+//[수정] Static 공유 Bounds와 Skinned Instance별 Bounds 분리
+GPUBVHNodeBounds GetInstanceWorldBounds(uint instanceID)
+{
+    GPUInstance instance = instances[instanceID];
+    GPUMeshDescriptor mesh = meshes[instance.meshIndex];
+    GPUBVHDescriptor blas = bvhDescriptors[instance.meshIndex];
+    uint rootIndex = blas.metadata.x;
+
+    GPUBVHNodeBounds localBounds;
+    if (mesh.meshType == MESH_TYPE_SKINNED && instance.blasBoundsOffset != INVALID_INDEX)
+    {
+        uint localRootIndex = rootIndex - blas.ranges.x;
+        localBounds = skinnedBVHBounds[instance.blasBoundsOffset + localRootIndex];
+    }
+    else
+    {
+        localBounds = bvhBounds[rootIndex];
+    }
+    return TransformBounds(localBounds, instance.worldMatrix);
+}
+
+//[수정] TLAS Primitive의 Instance Bounds를 Leaf별로 병합
+void main()
+{
+    uint localNodeIndex = gl_GlobalInvocationID.x;
+    GPUBVHDescriptor tlas = bvhDescriptors[uTLASDescriptorIndex];
+    if (localNodeIndex >= tlas.ranges.y) return;
+
+    uint nodeIndex = tlas.ranges.x + localNodeIndex;
+    GPUBVHNodeTopology node = bvhTopology[nodeIndex];
+    if (node.treeTopology.w == 0u) return;
+
+    vec3 boundsMin = vec3(MAX_FLOAT);
+    vec3 boundsMax = vec3(-MAX_FLOAT);
+    for (uint i = 0u; i < node.primitiveRange.y; ++i)
+    {
+        // TLAS primitives are Instance indices; the packed offset is absolute.
+        uint instanceID = bvhPrimitiveIndices[node.primitiveRange.x + i];
+        GPUBVHNodeBounds bounds = GetInstanceWorldBounds(instanceID);
+        boundsMin = min(boundsMin, bounds.aabbMin.xyz);
+        boundsMax = max(boundsMax, bounds.aabbMax.xyz);
+    }
+
+    GPUBVHNodeBounds result;
+    result.aabbMin = vec4(boundsMin, 0.0);
+    result.aabbMax = vec4(boundsMax, 0.0);
+    // BLAS bounds in this shared buffer remain untouched.
+    bvhBounds[nodeIndex] = result;
+}

@@ -1,0 +1,155 @@
+//[수정] 신규 셰이더: 변형 정점에서 Instance별 BLAS Leaf Bounds 계산
+#version 460 core
+
+//[수정] C++ GPU 데이터 배치와 맞춘 구조체 직접 선언
+
+struct GPUStaticVertex
+{
+    vec4 position;
+    vec4 normal;
+    vec4 uv;
+};
+
+struct GPUMeshDescriptor
+{
+    uint vertexOffset;
+    uint vertexCount;
+    uint triangleOffset;
+    uint triangleCount;
+    uint meshType;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPUInstance
+{
+    mat4 worldMatrix;
+    mat4 inverseWorldMatrix;
+
+    uint meshIndex;
+    uint materialIndex;
+    uint boneOffset;
+    uint boneCount;
+
+    uint skinnedVertexOffset;
+    uint blasBoundsOffset;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPUBVHNodeTopology
+{
+    uvec4 treeTopology;
+    uvec4 primitiveRange;
+};
+
+struct GPUBVHNodeBounds
+{
+    vec4 aabbMin;
+    vec4 aabbMax;
+};
+
+struct GPUBVHDescriptor
+{
+    uvec4 ranges;
+    uvec4 metadata;
+};
+
+layout(local_size_x = 64, local_size_y = 1) in;
+
+const uint INVALID_INDEX = 0xffffffffu;
+const uint MESH_TYPE_SKINNED = 1u;
+
+layout(std430, binding = 4) readonly buffer IndexBuffer
+{
+    uint indices[];
+};
+layout(std430, binding = 5) readonly buffer MeshBuffer
+{
+    GPUMeshDescriptor meshes[];
+};
+layout(std430, binding = 6) readonly buffer InstanceBuffer
+{
+    GPUInstance instances[];
+};
+layout(std430, binding = 9) readonly buffer SkinnedOutputBuffer
+{
+    GPUStaticVertex outputVertices[];
+};
+layout(std430, binding = 16) readonly buffer BVHTopologyBuffer
+{
+    GPUBVHNodeTopology bvhTopology[];
+};
+layout(std430, binding = 18) readonly buffer BVHPrimitiveBuffer
+{
+    uint bvhPrimitiveIndices[];
+};
+layout(std430, binding = 19) readonly buffer BVHDescriptorBuffer
+{
+    GPUBVHDescriptor bvhDescriptors[];
+};
+layout(std430, binding = 20) writeonly buffer BVHSkinnedBoundsBuffer
+{
+    GPUBVHNodeBounds skinnedBVHBounds[];
+};
+
+layout(std140, binding = 1) uniform RTFrameData
+{
+    uint uRayCount;
+    uint uInstanceCount;
+    uint uTLASDescriptorIndex;
+    uint _pad1;
+};
+
+const float FLT_MAX_VALUE = 3.402823466e+38;
+
+//[수정] 노드 / Instance 단위 Leaf Refit 및 Instance별 Bounds 기록
+void main()
+{
+    uint localNodeIndex = gl_GlobalInvocationID.x;
+    uint instanceID = gl_GlobalInvocationID.y;
+    if (instanceID >= uInstanceCount) return;
+
+    GPUInstance instance = instances[instanceID];
+    if (instance.boneCount == 0u || instance.blasBoundsOffset == INVALID_INDEX) return;
+
+    GPUMeshDescriptor mesh = meshes[instance.meshIndex];
+    if (mesh.meshType != MESH_TYPE_SKINNED) return;
+
+    GPUBVHDescriptor blas = bvhDescriptors[instance.meshIndex];
+    if (localNodeIndex >= blas.ranges.y) return;
+
+    GPUBVHNodeTopology node = bvhTopology[blas.ranges.x + localNodeIndex];
+    // Internal Bounds are updated in the next dispatch.
+    if (node.treeTopology.w == 0u) return;
+
+    vec3 boundsMin = vec3(FLT_MAX_VALUE);
+    vec3 boundsMax = vec3(-FLT_MAX_VALUE);
+    uint firstPrimitive = node.primitiveRange.x;
+    uint primitiveCount = node.primitiveRange.y;
+    uint vertexOffset = instance.skinnedVertexOffset;
+
+    for (uint i = 0u; i < primitiveCount; ++i)
+    {
+        // firstPrimitive is already an absolute index in the packed primitive buffer.
+        uint localTriangleIndex = bvhPrimitiveIndices[firstPrimitive + i];
+        uint triangleID = mesh.triangleOffset + localTriangleIndex;
+        uint indexBase = triangleID * 3u;
+        uint i0 = indices[indexBase];
+        uint i1 = indices[indexBase + 1u];
+        uint i2 = indices[indexBase + 2u];
+
+        vec3 p0 = outputVertices[vertexOffset + i0].position.xyz;
+        vec3 p1 = outputVertices[vertexOffset + i1].position.xyz;
+        vec3 p2 = outputVertices[vertexOffset + i2].position.xyz;
+        boundsMin = min(boundsMin, min(p0, min(p1, p2)));
+        boundsMax = max(boundsMax, max(p0, max(p1, p2)));
+    }
+
+    // Keep bounds in mesh local space, independently for each instance.
+    GPUBVHNodeBounds result;
+    result.aabbMin = vec4(boundsMin, 0.0);
+    result.aabbMax = vec4(boundsMax, 0.0);
+    skinnedBVHBounds[instance.blasBoundsOffset + localNodeIndex] = result;
+}

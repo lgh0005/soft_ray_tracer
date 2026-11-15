@@ -15,7 +15,7 @@ namespace bdt
     public:
         virtual ~RTBVHOutputPass() override;
         static RTBVHOutputPassUPtr Create();
-        virtual void Execute(IRenderBus& bus) override;
+        virtual bool Execute(IRenderBus& bus) override;
         virtual void Shutdown() override;
 
     private:

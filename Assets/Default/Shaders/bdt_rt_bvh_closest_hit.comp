@@ -1,5 +1,60 @@
 #version 460 core
 
+//[수정] C++ GPU 데이터 배치와 맞춘 구조체 직접 선언
+
+struct GPUStaticVertex
+{
+    vec4 position;
+    vec4 normal;
+    vec4 uv;
+};
+
+struct GPUMeshDescriptor
+{
+    uint vertexOffset;
+    uint vertexCount;
+    uint triangleOffset;
+    uint triangleCount;
+    uint meshType;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPUInstance
+{
+    mat4 worldMatrix;
+    mat4 inverseWorldMatrix;
+
+    uint meshIndex;
+    uint materialIndex;
+    uint boneOffset;
+    uint boneCount;
+
+    uint skinnedVertexOffset;
+    uint blasBoundsOffset;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPUBVHNodeTopology
+{
+    uvec4 treeTopology;
+    uvec4 primitiveRange;
+};
+
+struct GPUBVHNodeBounds
+{
+    vec4 aabbMin;
+    vec4 aabbMax;
+};
+
+struct GPUBVHDescriptor
+{
+    uvec4 ranges;
+    uvec4 metadata;
+};
+
 layout(local_size_x = 64) in;
 
 // Matches bdt_rt_brute_force_closest_hit.comp for all ray, geometry and hit layouts.
@@ -8,6 +63,9 @@ const float MAX_RAY_DISTANCE = 3.402823466e+38;
 const uint INVALID_INDEX = 0xffffffffu;
 const uint RAY_ACTIVE = 1u;
 const uint MESH_TYPE_SKINNED = 1u;
+// BLAS / TLAS GPU Refit 이후 Instance별 Bounds 사용
+//[수정] BLAS / TLAS Refit 이후 Instance별 Bounds 사용 활성화
+const bool ENABLE_SKINNED_BVH_BOUNDS = true;
 
 struct GPURay
 {
@@ -36,62 +94,11 @@ struct GPUHit
     uvec4 identifiers; // x: instanceID, y: globalTriangleID, z: hasHit
 };
 
-struct GPUStaticVertex
-{
-    vec4 position;
-    vec4 normal;
-    vec4 uv;
-};
-
-struct GPUMeshDescriptor
-{
-    uint vertexOffset;
-    uint vertexCount;
-    uint triangleOffset;
-    uint triangleCount;
-    uint meshType;
-    uint pad0;
-    uint pad1;
-    uint pad2;
-};
-
-struct GPUInstance
-{
-    mat4 worldMatrix;
-    mat4 inverseWorldMatrix;
-    uint meshIndex;
-    uint materialIndex;
-    uint boneOffset;
-    uint boneCount;
-    uint skinnedVertexOffset;
-    uint pad0;
-    uint pad1;
-    uint pad2;
-};
-
 // GPUBVHNodeTopology: treeTopology = (left, right, parent, isLeaf)
 // primitiveRange = (firstPrimitive, primitiveCount, unused, escapeIndex)
 // All node and primitive indices in these uploaded structures are absolute.
-struct GPUBVHNodeTopology
-{
-    uvec4 treeTopology;
-    uvec4 primitiveRange;
-};
-
-struct GPUBVHNodeBounds
-{
-    vec4 aabbMin;
-    vec4 aabbMax;
-};
-
 // ranges = (nodeOffset, nodeCount, primitiveOffset, primitiveCount)
 // metadata = (absoluteRootNode, meshIndex, reserved, reserved)
-struct GPUBVHDescriptor
-{
-    uvec4 ranges;
-    uvec4 metadata;
-};
-
 layout(std430, binding = 0) readonly buffer RayBuffer
 {
     GPURayWorkItem rays[];
@@ -102,54 +109,60 @@ layout(std430, binding = 1) writeonly buffer HitBuffer
     GPUHit hits[];
 };
 
-layout(std430, binding = 2) readonly buffer VertexBuffer
+layout(std430, binding = 3) readonly buffer VertexBuffer
 {
     GPUStaticVertex vertices[];
 };
 
-layout(std430, binding = 3) readonly buffer IndexBuffer
+layout(std430, binding = 4) readonly buffer IndexBuffer
 {
     uint indices[];
 };
 
-layout(std430, binding = 4) readonly buffer MeshBuffer
+layout(std430, binding = 5) readonly buffer MeshBuffer
 {
     GPUMeshDescriptor meshes[];
 };
 
-layout(std430, binding = 5) readonly buffer InstanceBuffer
+layout(std430, binding = 6) readonly buffer InstanceBuffer
 {
     GPUInstance instances[];
 };
 
-layout(std430, binding = 8) readonly buffer SkinnedOutputBuffer
+layout(std430, binding = 9) readonly buffer SkinnedOutputBuffer
 {
     GPUStaticVertex outputVertices[];
 };
 
-layout(std430, binding = 10) readonly buffer RayCounterBuffer
+layout(std430, binding = 11) readonly buffer RayCounterBuffer
 {
     uint rayCount;
 };
 
 // IMPORTANT: verify these binding numbers against ERTStorageBinding.
-// These assume BVHTopology, BVHBounds, BVHPrimitive, BVHDescriptor are 15..18.
-layout(std430, binding = 15) readonly buffer BVHTopologyBuffer
+// BVH buffers follow ERTStorageBinding (16..20); scene lights use EStorageBinding::Light (2).
+layout(std430, binding = 16) readonly buffer BVHTopologyBuffer
 {
     GPUBVHNodeTopology bvhTopology[];
 };
 
-layout(std430, binding = 16) readonly buffer BVHBoundsBuffer
+layout(std430, binding = 17) readonly buffer BVHBoundsBuffer
 {
     GPUBVHNodeBounds bvhBounds[];
 };
 
-layout(std430, binding = 17) readonly buffer BVHPrimitiveBuffer
+// Instance별 Skinned BLAS Bounds
+layout(std430, binding = 20) readonly buffer BVHSkinnedBoundsBuffer
+{
+    GPUBVHNodeBounds skinnedBVHBounds[];
+};
+
+layout(std430, binding = 18) readonly buffer BVHPrimitiveBuffer
 {
     uint bvhPrimitiveIndices[];
 };
 
-layout(std430, binding = 18) readonly buffer BVHDescriptorBuffer
+layout(std430, binding = 19) readonly buffer BVHDescriptorBuffer
 {
     GPUBVHDescriptor bvhDescriptors[];
 };
@@ -158,13 +171,10 @@ layout(std140, binding = 1) uniform RTFrameData
 {
     uint uRayCount;
     uint uInstanceCount;
-    uint _pad0;
+    uint uTLASDescriptorIndex;
     uint _pad1;
 };
 
-// C++ RTBVHStorage appends one BLAS descriptor per Mesh, then one TLAS descriptor.
-// Set this to BDT_INSTANCE.GetGeometryCount() after binding this shader.
-layout(location = 0) uniform uint uTLASDescriptorIndex;
 
 // ==================================================
 // Ray-Triangle Intersection
@@ -259,6 +269,26 @@ bool IntersectAABB(
 // Triangle / BLAS traversal
 // ==================================================
 
+//[수정] 전역 노드 인덱스를 로컬로 바꾸어 Instance별 Skinned Bounds 조회
+GPUBVHNodeBounds GetBLASBounds(
+    GPUInstance instance,
+    GPUMeshDescriptor mesh,
+    GPUBVHDescriptor blas,
+    uint nodeIndex)
+{
+    if (ENABLE_SKINNED_BVH_BOUNDS &&
+        mesh.meshType == MESH_TYPE_SKINNED &&
+        instance.blasBoundsOffset != INVALID_INDEX)
+    {
+        // Global Node Index -> BLAS Local Node Index
+        uint localNodeIndex = nodeIndex - blas.ranges.x;
+        uint boundsIndex = instance.blasBoundsOffset + localNodeIndex;
+        return skinnedBVHBounds[boundsIndex];
+    }
+
+    return bvhBounds[nodeIndex];
+}
+
 void IntersectMeshTriangle(
     uint instanceID,
     GPUInstance instance,
@@ -335,7 +365,9 @@ void TraverseBLAS(
     {
         GPUBVHNodeTopology node = bvhTopology[nodeIndex];
 
-        if (!IntersectAABB(localOrigin, localDirection, bvhBounds[nodeIndex], closestT))
+        //[수정] BLAS만 분리된 Bounds 조회를 사용; TLAS는 기존 공유 Bounds 유지
+        GPUBVHNodeBounds bounds = GetBLASBounds(instance, mesh, blas, nodeIndex);
+        if (!IntersectAABB(localOrigin, localDirection, bounds, closestT))
         {
             nodeIndex = node.primitiveRange.w;
             continue;

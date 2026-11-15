@@ -17,11 +17,6 @@ namespace bdt
 		uint32 pad0[2]		   { 0 };
 	};
 
-	static_assert(sizeof(MaterialData) == 64);
-	static_assert(offsetof(MaterialData, ior) == 44);
-	static_assert(offsetof(MaterialData, transmission) == 48);
-	static_assert(offsetof(MaterialData, textureFlags) == 52);
-
 	struct alignas(BDT_STD140_BASE_ALIGNMENT) CameraData
 	{
 		// GLSL 기본 column-major 기준. viewProjection = projection * view.

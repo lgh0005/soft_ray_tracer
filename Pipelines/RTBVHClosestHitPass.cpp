@@ -29,16 +29,16 @@ namespace bdt
         return true;
     }
 
-    void RTBVHClosestHitPass::Execute(IRenderBus& bus)
+    bool RTBVHClosestHitPass::Execute(IRenderBus& bus)
     {
         auto& rtBus = static_cast<RTBVHBus&>(bus);
 
         RTRayQueue* queue = rtBus.GetRayQueue();
         RTBVHStorage* bvh = rtBus.GetBVHStorage();
-        if (!queue || !bvh) return;
+        if (!queue || !bvh) return false;
 
         const auto shader = m_closestHitShader.Get();
-        if (!shader || !shader->IsValid()) return;
+        if (!shader || !shader->IsValid()) return false;
 
         // 1. Ray / Hit / Counter
         queue->BindRayBuffer();
@@ -58,9 +58,6 @@ namespace bdt
         // 4. Compute Shader
         shader->Bind();
 
-        // TLAS Descriptor는 모든 BLAS Descriptor 다음에 위치
-        glUniform1ui(0, BDT_INSTANCE.GetGeometryCount());
-
         // 5. Indirect Dispatch
         queue->BindDispatchCommandBuffer();
         glDispatchComputeIndirect(0);
@@ -68,9 +65,11 @@ namespace bdt
 
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
         ComputeShader::Unbind();
+        return true;
     }
 
     void RTBVHClosestHitPass::Shutdown()
     {
+
     }
 }

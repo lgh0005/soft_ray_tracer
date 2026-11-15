@@ -7,6 +7,7 @@ namespace bdt
     BDT_CLASS_PTR(RenderTexture2D)
     BDT_CLASS_PTR(RTRayQueue)
     BDT_CLASS_PTR(RTBVHBuilder)
+    BDT_CLASS_PTR(GLStorageBuffer)
     BDT_CLASS_PTR(RTBVHBus)
 
     class RTBVHBus : public IRenderBus
@@ -26,6 +27,7 @@ namespace bdt
         GLStorageBuffer* GetRayBuffer() const;
         GLStorageBuffer* GetHitBuffer() const;
         RTBVHStorage* GetBVHStorage() const;
+        RTBVHBuilder* GetBVHBuilder() const;
         RTRayQueue* GetRayQueue() const;
 
         // Output Resources
@@ -40,6 +42,7 @@ namespace bdt
         // Shared Camera Resource
         GLBufferUPtr m_cameraBuffer{ nullptr };
 		GLBufferUPtr m_frameDataBuffer{ nullptr };
+        GLStorageBufferUPtr m_lightBuffer;
 
         // Ray Tracing Buffers
         RTRayQueueUPtr m_rayQueue{ nullptr };

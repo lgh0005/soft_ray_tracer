@@ -46,19 +46,22 @@ namespace bdt
 		return true;
 	}
 
-	void MySimpleGeometryPass::Execute(IRenderBus& bus)
+	bool MySimpleGeometryPass::Execute(IRenderBus& bus)
 	{
 		// 1. RenderBus 및 RenderScene 가져오기
 		auto* geometryBus = static_cast<MySimpleBus*>(&bus);
-		if (!geometryBus) return;
+		if (!geometryBus) return false;
 
 		const RenderScene* scene = geometryBus->GetRenderScene();
 		MySimpleGBuffer* gBuffer = geometryBus->GetGBuffer();
-		if (!scene || !gBuffer) return;
+		if (!scene || !gBuffer) return false;
 
 		// 2. 셰이더 준비 여부 확인
 		auto staticShader = m_geometryShaderStatic.Get();
 		auto skinnedShader = m_geometryShaderSkinned.Get();
+		if (!staticShader || !staticShader->IsValid()) return false;
+		if (!skinnedShader || !skinnedShader->IsValid()) return false;
+		if (!m_materialSampler) return false;
 
 		// 3. GBuffer 바인딩
 		gBuffer->Bind();
@@ -85,6 +88,7 @@ namespace bdt
 		for (uint32 slot = 0; slot < (uint32)EMaterialTextureSlot::Count; ++slot)
 			GLSampler::Unbind(slot);
 		GraphicsShader::Unbind();
+		return true;
 	}
 
 	void MySimpleGeometryPass::Shutdown()

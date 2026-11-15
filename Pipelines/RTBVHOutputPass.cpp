@@ -26,7 +26,7 @@ namespace bdt
         return true;
     }
 
-    void RTBVHOutputPass::Execute(IRenderBus& bus)
+    bool RTBVHOutputPass::Execute(IRenderBus& bus)
     {
         auto& rtBus = static_cast<RTBVHBus&>(bus);
 
@@ -35,42 +35,40 @@ namespace bdt
         auto* screen = rtBus.GetRenderScreen();
 
         if (!outputTexture || !screen)
-            return;
+            return false;
 
         if (!outputTexture->IsValid() || m_readFramebuffer == 0)
-            return;
+            return false;
 
         const uint32 width = rtBus.GetWidth();
         const uint32 height = rtBus.GetHeight();
 
         if (width == 0 || height == 0)
-            return;
+            return false;
 
         // 2. Output Texture를 Read Framebuffer에 연결
-        glNamedFramebufferTexture(
+        glNamedFramebufferTexture
+        (
             m_readFramebuffer,
             GL_COLOR_ATTACHMENT0,
             outputTexture->GetTextureID(),
             0
         );
 
-        glNamedFramebufferReadBuffer(
+        glNamedFramebufferReadBuffer
+        (
             m_readFramebuffer,
             GL_COLOR_ATTACHMENT0
         );
 
         // 3. Framebuffer 상태 확인
-        if (glCheckNamedFramebufferStatus(
-            m_readFramebuffer,
-            GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        {
-            return;
-        }
+        if (glCheckNamedFramebufferStatus(m_readFramebuffer, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+            return false;
 
         // 4. 기본 Framebuffer로 복사
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-
-        glBlitNamedFramebuffer(
+        glBlitNamedFramebuffer
+        (
             m_readFramebuffer,
             0,
             0, 0,
@@ -82,6 +80,8 @@ namespace bdt
             GL_COLOR_BUFFER_BIT,
             GL_NEAREST
         );
+
+        return true;
     }
 
     void RTBVHOutputPass::Shutdown()

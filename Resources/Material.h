@@ -23,9 +23,16 @@ namespace bdt
         const MaterialDesc& GetDesc() const;
         const MaterialTextures& GetTextures() const;
 
-        // TODO : 몇 가지 팩터들을 추가해야 함.
+        uint32 GetIndex() const;
+        void SetIndex(uint32 index);
+
+        void SetAlbedoFactor(const vec4& factor);
+        void SetEmissiveFactor(const vec3& factor);
+        void SetMetallicFactor(float factor);
         void SetRoughnessFactor(float factor);
         void SetEmissionStrength(float strength);
+        void SetIOR(float ior);
+        void SetTransmission(float transmission);
 
     private:
         Material
@@ -36,6 +43,7 @@ namespace bdt
 
         MaterialDesc m_desc;
         MaterialTextures m_textures;
+        uint32 m_index{ MaxValue<uint32> };
 	};
 }
 

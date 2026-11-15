@@ -27,16 +27,16 @@ namespace bdt
         return true;
     }
 
-    void RTSkinningPass::Execute(IRenderBus& bus)
+    bool RTSkinningPass::Execute(IRenderBus& bus)
     {
-        // 1. Shader 확인
-        const auto shader = m_skinningShader.Get();
-        if (!shader || !shader->IsValid()) return;
-
         // 2. Instance / Vertex Count
         const uint32 instanceCount = BDT_INSTANCE.GetInstanceCount();
         const uint32 maxVertexCount = BDT_INSTANCE.GetMaxSkinnedVertexCount();
-        if (instanceCount == 0 || maxVertexCount == 0) return;
+        if (instanceCount == 0 || maxVertexCount == 0) return true;
+
+        // 1. Shader 확인
+        const auto shader = m_skinningShader.Get();
+        if (!shader || !shader->IsValid()) return false;
 
         // 3. Geometry Input
         BDT_INSTANCE.BindSkinnedVertexBuffer();
@@ -63,6 +63,7 @@ namespace bdt
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
         ComputeShader::Unbind();
+        return true;
     }
 
     void RTSkinningPass::Shutdown()

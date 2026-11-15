@@ -1,0 +1,73 @@
+//[수정] 신규 셰이더: TLAS Internal Bounds 역순 병합
+#version 460 core
+
+//[수정] C++ GPU 데이터 배치와 맞춘 구조체 직접 선언
+
+struct GPUBVHNodeTopology
+{
+    uvec4 treeTopology;
+    uvec4 primitiveRange;
+};
+
+struct GPUBVHNodeBounds
+{
+    vec4 aabbMin;
+    vec4 aabbMax;
+};
+
+struct GPUBVHDescriptor
+{
+    uvec4 ranges;
+    uvec4 metadata;
+};
+
+layout(local_size_x = 1) in;
+
+const uint INVALID_INDEX = 0xffffffffu;
+
+layout(std430, binding = 16) readonly buffer BVHTopologyBuffer
+{
+    GPUBVHNodeTopology bvhTopology[];
+};
+layout(std430, binding = 17) buffer BVHBoundsBuffer
+{
+    GPUBVHNodeBounds bvhBounds[];
+};
+layout(std430, binding = 19) readonly buffer BVHDescriptorBuffer
+{
+    GPUBVHDescriptor bvhDescriptors[];
+};
+
+layout(std140, binding = 1) uniform RTFrameData
+{
+    uint uRayCount;
+    uint uInstanceCount;
+    uint uTLASDescriptorIndex;
+    uint _pad1;
+};
+
+//[수정] 단일 Invocation으로 TLAS Internal Node를 Bottom-Up 갱신
+void main()
+{
+    GPUBVHDescriptor tlas = bvhDescriptors[uTLASDescriptorIndex];
+    uint nodeOffset = tlas.ranges.x;
+
+    // One invocation owns the TLAS. Reverse preorder visits children first.
+    for (uint i = tlas.ranges.y; i > 0u; --i)
+    {
+        uint nodeIndex = nodeOffset + i - 1u;
+        GPUBVHNodeTopology node = bvhTopology[nodeIndex];
+        if (node.treeTopology.w != 0u) continue;
+
+        uint leftIndex = node.treeTopology.x;
+        uint rightIndex = node.treeTopology.y;
+        if (leftIndex == INVALID_INDEX || rightIndex == INVALID_INDEX) continue;
+
+        GPUBVHNodeBounds leftBounds = bvhBounds[leftIndex];
+        GPUBVHNodeBounds rightBounds = bvhBounds[rightIndex];
+        GPUBVHNodeBounds result;
+        result.aabbMin = vec4(min(leftBounds.aabbMin.xyz, rightBounds.aabbMin.xyz), 0.0);
+        result.aabbMax = vec4(max(leftBounds.aabbMax.xyz, rightBounds.aabbMax.xyz), 0.0);
+        bvhBounds[nodeIndex] = result;
+    }
+}

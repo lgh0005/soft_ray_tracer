@@ -10,7 +10,7 @@ namespace bdt
 	public:
 		virtual  ~RTClosestHitPass() override;
 		static RTClosestHitPassUPtr Create();
-		virtual void Execute(IRenderBus& bus) override;
+		virtual bool Execute(IRenderBus& bus) override;
 		virtual void Shutdown() override;
 
 	private:

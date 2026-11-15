@@ -18,7 +18,7 @@ namespace bdt
 	public:
 		virtual ~MySimpleSkyboxPass() override;
 		static MySimpleSkyboxPassUPtr Create();
-		void Execute(IRenderBus& bus) override;
+		bool Execute(IRenderBus& bus) override;
 		void Shutdown() override;
 
 	private:

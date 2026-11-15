@@ -49,6 +49,7 @@ namespace bdt
 
         // 4. Prepare Geometry / Instances
         if (!BDT_INSTANCE.Prepare(scene)) return false;
+        if (!BDT_INSTANCE.Upload()) return false;
 
         // 5. RTFrame UBO
         const uint64 rayCount64 =static_cast<uint64>(width) * height;

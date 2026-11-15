@@ -16,6 +16,7 @@ namespace bdt
 
 		bool Update(const void* data, uint32 byteSize);
 		void Bind(uint32 slot) const;
+		void BindRange(uint32 slot) const;
 		static void Unbind(uint32 slot);
 
 		bool Resize(uint32 byteSize);

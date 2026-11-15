@@ -25,7 +25,13 @@ namespace bdt
         m_boundsBuffer = GLStorageBuffer::Create();
         m_primitiveBuffer = GLStorageBuffer::Create();
         m_descriptorBuffer = GLStorageBuffer::Create();
-        return m_topologyBuffer && m_boundsBuffer && m_primitiveBuffer && m_descriptorBuffer;
+		m_skinnedBoundsBuffer = GLStorageBuffer::Create();
+        
+        return m_topologyBuffer &&
+            m_boundsBuffer &&
+            m_primitiveBuffer &&
+            m_descriptorBuffer &&
+            m_skinnedBoundsBuffer;
     }
 
     /*==========================================//
@@ -122,6 +128,14 @@ namespace bdt
         m_isBoundsDirty = true;
 
         return true;
+    }
+
+    bool RTBVHStorage::ResizeSkinnedBounds(uint32 nodeCount)
+    {
+        if (!m_skinnedBoundsBuffer) return false;
+        const uint64 bytes = static_cast<uint64>(nodeCount) * sizeof(GPUBVHNodeBounds);
+        if (bytes > MaxValue<uint32>) return false;
+        return m_skinnedBoundsBuffer->Resize(static_cast<uint32>(bytes));
     }
 
     /*==========================================//
@@ -222,11 +236,8 @@ namespace bdt
     bool RTBVHStorage::UploadBounds()
     {
         if (!m_boundsBuffer) return false;
-
         const uint64 bytes = static_cast<uint64>(m_bounds.size()) * sizeof(GPUBVHNodeBounds);
-        if (bytes > MaxValue<uint32>)
-            return false;
-
+        if (bytes > MaxValue<uint32>) return false;
         return m_boundsBuffer->Update(m_bounds.data(), static_cast<uint32>(bytes));
     }
 
@@ -256,11 +267,11 @@ namespace bdt
 
     void RTBVHStorage::Bind() const
     {
-        if (!m_topologyBuffer || !m_boundsBuffer || !m_primitiveBuffer || !m_descriptorBuffer) return;
         m_topologyBuffer->Bind(static_cast<uint32>(ERTStorageBinding::BVHTopology));
         m_boundsBuffer->Bind(static_cast<uint32>(ERTStorageBinding::BVHBounds));
         m_primitiveBuffer->Bind(static_cast<uint32>(ERTStorageBinding::BVHPrimitive));
         m_descriptorBuffer->Bind(static_cast<uint32>(ERTStorageBinding::BVHDescriptor));
+        m_skinnedBoundsBuffer->Bind(static_cast<uint32>(ERTStorageBinding::BVHSkinnedBounds));
     }
 
     /*==========================================//
@@ -342,6 +353,7 @@ namespace bdt
         m_boundsBuffer.reset();
         m_primitiveBuffer.reset();
         m_descriptorBuffer.reset();
+        m_skinnedBoundsBuffer.reset();
         m_isStorageDirty = false;
         m_isBoundsDirty = false;
     }

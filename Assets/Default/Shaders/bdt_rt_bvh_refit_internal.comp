@@ -1,0 +1,106 @@
+#version 460 core
+
+struct GPUMeshDescriptor
+{
+    uint vertexOffset;
+    uint vertexCount;
+    uint triangleOffset;
+    uint triangleCount;
+    uint meshType;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPUInstance
+{
+    mat4 worldMatrix;
+    mat4 inverseWorldMatrix;
+
+    uint meshIndex;
+    uint materialIndex;
+    uint boneOffset;
+    uint boneCount;
+
+    uint skinnedVertexOffset;
+    uint blasBoundsOffset;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPUBVHNodeTopology
+{
+    uvec4 treeTopology;
+    uvec4 primitiveRange;
+};
+
+struct GPUBVHNodeBounds
+{
+    vec4 aabbMin;
+    vec4 aabbMax;
+};
+
+struct GPUBVHDescriptor
+{
+    uvec4 ranges;
+    uvec4 metadata;
+};
+
+layout(local_size_x = 64, local_size_y = 1) in;
+
+const uint INVALID_INDEX = 0xffffffffu;
+const uint MESH_TYPE_SKINNED = 1u;
+
+layout(std430, binding = 5) readonly buffer MeshBuffer { GPUMeshDescriptor meshes[]; };
+layout(std430, binding = 6) readonly buffer InstanceBuffer { GPUInstance instances[]; };
+layout(std430, binding = 16) readonly buffer BVHTopologyBuffer { GPUBVHNodeTopology bvhTopology[]; };
+layout(std430, binding = 19) readonly buffer BVHDescriptorBuffer { GPUBVHDescriptor bvhDescriptors[]; };
+layout(std430, binding = 20) buffer BVHSkinnedBoundsBuffer { GPUBVHNodeBounds skinnedBVHBounds[]; };
+
+layout(std140, binding = 1) uniform RTFrameData
+{
+    uint uRayCount;
+    uint uInstanceCount;
+    uint uTLASDescriptorIndex;
+    uint _pad1;
+};
+
+//Instance마다 하나의 Invocation이 자식 Bounds를 Bottom-Up 병합
+void main()
+{
+    uint instanceID = gl_GlobalInvocationID.x;
+    if (instanceID >= uInstanceCount) return;
+
+    GPUInstance instance = instances[instanceID];
+    if (instance.boneCount == 0u || instance.blasBoundsOffset == INVALID_INDEX) return;
+
+    GPUMeshDescriptor mesh = meshes[instance.meshIndex];
+    if (mesh.meshType != MESH_TYPE_SKINNED) return;
+
+    GPUBVHDescriptor blas = bvhDescriptors[instance.meshIndex];
+    uint nodeOffset = blas.ranges.x;
+    uint boundsOffset = instance.blasBoundsOffset;
+
+    // Preorder storage guarantees that both children follow their parent.
+    // One invocation owns the entire instance, so reverse order is bottom-up.
+    for (uint i = blas.ranges.y; i > 0u; --i)
+    {
+        uint localNodeIndex = i - 1u;
+        GPUBVHNodeTopology node = bvhTopology[nodeOffset + localNodeIndex];
+        if (node.treeTopology.w != 0u) continue;
+
+        uint leftChild = node.treeTopology.x;
+        uint rightChild = node.treeTopology.y;
+        if (leftChild == INVALID_INDEX || rightChild == INVALID_INDEX) continue;
+
+        uint localLeft = leftChild - nodeOffset;
+        uint localRight = rightChild - nodeOffset;
+        GPUBVHNodeBounds leftBounds = skinnedBVHBounds[boundsOffset + localLeft];
+        GPUBVHNodeBounds rightBounds = skinnedBVHBounds[boundsOffset + localRight];
+
+        GPUBVHNodeBounds result;
+        result.aabbMin = vec4(min(leftBounds.aabbMin.xyz, rightBounds.aabbMin.xyz), 0.0);
+        result.aabbMax = vec4(max(leftBounds.aabbMax.xyz, rightBounds.aabbMax.xyz), 0.0);
+        skinnedBVHBounds[boundsOffset + localNodeIndex] = result;
+    }
+}

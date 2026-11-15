@@ -36,17 +36,21 @@ namespace bdt
 		return true;
 	}
 
-	void MySimpleSkyboxPass::Execute(IRenderBus& bus)
+	bool MySimpleSkyboxPass::Execute(IRenderBus& bus)
 	{
 		auto* simpleBus = static_cast<MySimpleBus*>(&bus);
+		const auto& sky = simpleBus->GetSkybox();
+		if (!sky) return true;
+		if (!sky->IsValid()) return false;
 		auto* gBuffer = simpleBus->GetGBuffer();
 		auto* screen = simpleBus->GetRenderScreen();
+		if (!gBuffer || !screen || !m_skyboxSampler) return false;
 		auto shader = m_shader.Get();
-		if (!shader || !shader->IsValid()) return;
+		if (!shader || !shader->IsValid()) return false;
 
 		// 이 패스가 요청한 이미지에서 IBL을 생성한다.
 		auto* position = gBuffer->GetTexture(EGBufferTextureSlot::Position);
-		if (!position) return;
+		if (!position) return false;
 
 		// 1. RenderScreen 바인딩
 		screen->Bind();
@@ -61,9 +65,6 @@ namespace bdt
 		glDisable(GL_FRAMEBUFFER_SRGB);
 
 		// 3. Texture 및 Sampler 바인딩
-		const auto& sky = simpleBus->GetSkybox();
-		if (!sky || !sky->IsValid()) return;
-
 		sky->Bind(0);
 		m_skyboxSampler->Bind(0);
 		position->Bind(1);
@@ -82,6 +83,7 @@ namespace bdt
 
 		screen->Unbind();
 		glDepthMask(GL_TRUE);
+		return true;
 	}
 
 	void MySimpleSkyboxPass::Shutdown()

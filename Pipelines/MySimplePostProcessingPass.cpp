@@ -57,21 +57,22 @@ namespace bdt
         return true;
     }
 
-    void MySimplePostProcessingPass::Execute(IRenderBus& bus)
+    bool MySimplePostProcessingPass::Execute(IRenderBus& bus)
     {
         m_bloomReady = false;
         auto* simpleBus = static_cast<MySimpleBus*>(&bus);
         auto* screen = simpleBus->GetRenderScreen();
         auto* ldrFramebuffer = simpleBus->GetLDRFramebuffer();
         auto* ldrTexture = simpleBus->GetLDRTexture();
+        if (!screen || !ldrFramebuffer || !ldrTexture || !m_sampler) return false;
 
         auto toneMapping = m_toneMappingShader.Get();
         auto fxaa = m_fxaaShader.Get();
-        if (!toneMapping || !fxaa) return;
-        if (!toneMapping->IsValid() || !fxaa->IsValid()) return;
+        if (!toneMapping || !fxaa) return false;
+        if (!toneMapping->IsValid() || !fxaa->IsValid()) return false;
 
         auto* sceneTexture = screen->GetColorTexture();
-        if (!sceneTexture || !sceneTexture->IsValid()) return;
+        if (!sceneTexture || !sceneTexture->IsValid()) return false;
 
         // 2. Default Framebuffer 바인딩
         screen->Unbind();
@@ -124,6 +125,7 @@ namespace bdt
         RenderTexture2D::Unbind(1);
         GLSampler::Unbind(1);
         glDepthMask(GL_TRUE);
+        return true;
     }
 
     void MySimplePostProcessingPass::Shutdown()

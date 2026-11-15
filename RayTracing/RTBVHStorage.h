@@ -52,6 +52,7 @@ namespace bdt
 		bool RebuildBLAS(const List<RTBVHMeshInput>& meshes, uint32 maxLeafPrimitives = 4);
 		bool RebuildTLAS(const List<GPUBVHNodeBounds>& instanceBounds, uint32 maxLeafPrimitives = 1);
 		bool RefitTLAS(const List<GPUBVHNodeBounds>& instanceBounds);
+		bool ResizeSkinnedBounds(uint32 nodeCount);
 
 	private:
 		RTBVHStorage();
@@ -78,10 +79,11 @@ namespace bdt
 		List<uint32> m_primitiveIndices;
 		List<GPUBVHDescriptor> m_descriptors;
 
-		GLStorageBufferUPtr m_topologyBuffer;
-		GLStorageBufferUPtr m_boundsBuffer;
-		GLStorageBufferUPtr m_primitiveBuffer;
-		GLStorageBufferUPtr m_descriptorBuffer;
+		GLStorageBufferUPtr m_topologyBuffer	  { nullptr };
+		GLStorageBufferUPtr m_boundsBuffer		  { nullptr };
+		GLStorageBufferUPtr m_primitiveBuffer	  { nullptr };
+		GLStorageBufferUPtr m_descriptorBuffer	  { nullptr };
+		GLStorageBufferUPtr m_skinnedBoundsBuffer { nullptr };
 	};
 }
 

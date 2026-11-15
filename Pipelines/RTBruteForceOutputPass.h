@@ -11,7 +11,7 @@ namespace bdt
         virtual ~RTBruteForceOutputPass() override;
         static RTBruteForceOutputPassUPtr Create();
 
-        virtual void Execute(IRenderBus& bus) override;
+        virtual bool Execute(IRenderBus& bus) override;
         virtual void Shutdown() override;
 
     private:

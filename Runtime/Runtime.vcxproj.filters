@@ -97,6 +97,9 @@
     <ClCompile Include="PointLightActor.cpp">
       <Filter>소스 파일\Actors\LightActors</Filter>
     </ClCompile>
+    <ClCompile Include="RectAreaLightActor.cpp">
+      <Filter>소스 파일\Actors\LightActors</Filter>
+    </ClCompile>
     <ClCompile Include="SpotLightActor.cpp">
       <Filter>소스 파일\Actors\LightActors</Filter>
     </ClCompile>
@@ -128,6 +131,9 @@
       <Filter>소스 파일\Components\Lights</Filter>
     </ClCompile>
     <ClCompile Include="PointLight.cpp">
+      <Filter>소스 파일\Components\Lights</Filter>
+    </ClCompile>
+    <ClCompile Include="RectAreaLight.cpp">
       <Filter>소스 파일\Components\Lights</Filter>
     </ClCompile>
     <ClCompile Include="SceneComponent.cpp">
@@ -213,6 +219,9 @@
     <ClInclude Include="PointLightActor.h">
       <Filter>소스 파일\Actors\LightActors</Filter>
     </ClInclude>
+    <ClInclude Include="RectAreaLightActor.h">
+      <Filter>소스 파일\Actors\LightActors</Filter>
+    </ClInclude>
     <ClInclude Include="SpotLightActor.h">
       <Filter>소스 파일\Actors\LightActors</Filter>
     </ClInclude>
@@ -244,6 +253,9 @@
       <Filter>소스 파일\Components\Lights</Filter>
     </ClInclude>
     <ClInclude Include="PointLight.h">
+      <Filter>소스 파일\Components\Lights</Filter>
+    </ClInclude>
+    <ClInclude Include="RectAreaLight.h">
       <Filter>소스 파일\Components\Lights</Filter>
     </ClInclude>
     <ClInclude Include="SceneComponent.h">

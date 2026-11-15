@@ -76,6 +76,12 @@
     <ClInclude Include="RTInstanceStorage.h">
       <Filter>소스 파일\Storages</Filter>
     </ClInclude>
+    <ClInclude Include="RTMaterialStorage.h">
+      <Filter>소스 파일\Storages</Filter>
+    </ClInclude>
+    <ClInclude Include="RTMaterial.h">
+      <Filter>소스 파일\Storages</Filter>
+    </ClInclude>
     <ClInclude Include="RTRayQueue.h">
       <Filter>소스 파일\Storages</Filter>
     </ClInclude>
@@ -86,6 +92,9 @@
       <Filter>소스 파일\Storages</Filter>
     </ClInclude>
     <ClInclude Include="RTBVHBuilder.h">
+      <Filter>소스 파일\Storages</Filter>
+    </ClInclude>
+    <ClInclude Include="RTBVHUpdateStorage.h">
       <Filter>소스 파일\Storages</Filter>
     </ClInclude>
   </ItemGroup>
@@ -120,6 +129,12 @@
     <ClCompile Include="RTInstanceStorage.cpp">
       <Filter>소스 파일\Storages</Filter>
     </ClCompile>
+    <ClCompile Include="RTMaterialStorage.cpp">
+      <Filter>소스 파일\Storages</Filter>
+    </ClCompile>
+    <ClCompile Include="RTMaterial.cpp">
+      <Filter>소스 파일\Storages</Filter>
+    </ClCompile>
     <ClCompile Include="RTRayQueue.cpp">
       <Filter>소스 파일\Storages</Filter>
     </ClCompile>
@@ -127,6 +142,9 @@
       <Filter>소스 파일\Storages</Filter>
     </ClCompile>
     <ClCompile Include="RTBVHBuilder.cpp">
+      <Filter>소스 파일\Storages</Filter>
+    </ClCompile>
+    <ClCompile Include="RTBVHUpdateStorage.cpp">
       <Filter>소스 파일\Storages</Filter>
     </ClCompile>
   </ItemGroup>

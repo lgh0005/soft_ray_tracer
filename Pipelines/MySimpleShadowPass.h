@@ -14,7 +14,7 @@ namespace bdt
 	public:
 		virtual ~MySimpleShadowPass() override;
 		static MySimpleShadowPassUPtr Create(uint32 resolution = 1024);
-		virtual void Execute(IRenderBus& bus) override;
+		virtual bool Execute(IRenderBus& bus) override;
 		virtual void Shutdown() override;
 
 	private:

@@ -69,7 +69,7 @@
 //		return true;
 //	}
 //
-//	void MySimpleSSAOPass::Execute(IRenderBus& bus)
+//	bool MySimpleSSAOPass::Execute(IRenderBus& bus)
 //	{
 //		//auto* simpleBus = dynamic_cast<MySimpleBus*>(&bus);
 //		//if (!simpleBus) return;

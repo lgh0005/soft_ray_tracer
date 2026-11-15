@@ -39,13 +39,31 @@ namespace bdt
 		float innerConeAngle{ 0.976296f }; // Spot 내부 반각 12.5도의 cos
 		float outerConeAngle{ 0.953717f }; // Spot 외부 반각 17.5도의 cos
 
-		uint32 type{ 0 }; // GLSL uint: 0=Directional, 1=Point, 2=Spot
+		uint32 type{ 0 }; // GLSL uint: 0=Directional, 1=Point, 2=Spot, 3=RectArea
 		float attenuationConstant{ 1.0f };
 		float attenuationLinear{ 0.0f };
 		float attenuationQuadratic{ 0.0f };
 
 		int32 shadowIndex{ -1 }; // 그림자 맵 인덱스, -1이면 그림자 없음
+
+        //[수정] shadowIndex 다음 vec4를 std430의 16바이트 경계에 배치
+        alignas(BDT_STD430_BASE_ALIGNMENT) vec4 areaRight{ 1.0f, 0.0f, 0.0f, 0.0f };
+        vec4 areaUp{ 0.0f, 0.0f, 1.0f, 0.0f };
+        vec4 areaSize{ 2.0f, 2.0f, 0.0f, 0.0f }; // xy: 전체 가로 / 세로 길이
+
+        uint32 lightFlags{ 0 }; // bit 0: 양면 발광
+        uint32 pad0{ 0 };
+        uint32 pad1{ 0 };
 	};
+
+    static_assert(sizeof(LightData) == 160);
+    static_assert(offsetof(LightData, shadowIndex) == 80);
+    static_assert(offsetof(LightData, areaRight) == 96);
+    static_assert(offsetof(LightData, areaUp) == 112);
+    static_assert(offsetof(LightData, areaSize) == 128);
+    static_assert(offsetof(LightData, lightFlags) == 144);
+    static_assert(offsetof(LightData, pad0) == 148);
+    static_assert(offsetof(LightData, pad1) == 152);
 
 	struct alignas(BDT_STD430_BASE_ALIGNMENT) ShadowData
 	{

@@ -29,19 +29,20 @@ namespace bdt
         return true;
     }
 
-    void RTShadingPass::Execute(IRenderBus& bus)
+    bool RTShadingPass::Execute(IRenderBus& bus)
     {
         auto& rtBus = static_cast<RTBruteForceBus&>(bus);
         const auto shader = m_shadingShader.Get();
-        if (!shader || !shader->IsValid()) return;
+        if (!shader || !shader->IsValid()) return false;
 
         RTRayQueue* queue = rtBus.GetRayQueue();
+        if (!queue) return false;
 
         // 1. GPU Buffer 및 Output Texture 확인
         auto* rayBuffer = rtBus.GetRayBuffer();
         auto* hitBuffer = rtBus.GetHitBuffer();
         auto* outputTexture = rtBus.GetOutputTexture();
-        if (!rayBuffer || !hitBuffer || !outputTexture) return;
+        if (!rayBuffer || !hitBuffer || !outputTexture) return false;
 
         // 2. Ray / Hit SSBO 바인딩
         rayBuffer->Bind(static_cast<uint32>(ERTStorageBinding::Ray));
@@ -73,6 +74,7 @@ namespace bdt
 
         // 9. Cleanup
         ComputeShader::Unbind();
+        return true;
     }
 
     void RTShadingPass::Shutdown()

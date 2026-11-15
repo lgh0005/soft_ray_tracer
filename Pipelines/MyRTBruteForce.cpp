@@ -90,23 +90,19 @@ namespace bdt
 		if (!queue) return;
 
 		// 2. GPU Skinning
-		m_skinningPass->Execute(*m_bus);
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+		if (!m_skinningPass->Execute(*m_bus)) return;
 
 		// 3. Primary Ray Generation
-		m_rayGenPass->Execute(*m_bus);
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+		if (!m_rayGenPass->Execute(*m_bus)) return;
 
 		// 4. Bounce Loop
 		for (uint32 bounce = 0; bounce <= MaxBounces; ++bounce)
 		{
 			// Current Ray Queue -> Closest Hit
-			m_closestHitPass->Execute(*m_bus);
-			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			if (!m_closestHitPass->Execute(*m_bus)) return;
 
 			// Hit -> Radiance Accumulation
-			m_rtShadingPass->Execute(*m_bus);
-			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			if (!m_rtShadingPass->Execute(*m_bus)) return;
 
 			// 마지막 Bounce에서는 후속 광선을 생성하지 않음
 			if (bounce == MaxBounces) break;
@@ -114,18 +110,17 @@ namespace bdt
 			// Secondary Ray Generation
 			// + Atomic Queue Compaction
 			// + Prepare Indirect Dispatch
-			m_secondRayPass->Execute(*m_bus);
+			if (!m_secondRayPass->Execute(*m_bus)) return;
 
 			// Current / Next Ray Queue 교체
 			queue->SwapQueues();
 		}
 
 		// 5. Accumulation -> Output Texture
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-		m_imageResolvePass->Execute(*m_bus);
+		if (!m_imageResolvePass->Execute(*m_bus)) return;
 
 		// 6. Output Texture -> Screen
-		m_bruteForceOutputPass->Execute(*m_bus);
+		if (!m_bruteForceOutputPass->Execute(*m_bus)) return;
 	}
 
 	void MyRTBruteForce::Shutdown()

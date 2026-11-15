@@ -17,7 +17,7 @@ namespace bdt
 		~MySimpleForwardPass() override;
 		static MySimpleForwardPassUPtr Create();
 		bool Init() override;
-		void Execute(IRenderBus& bus) override;
+		bool Execute(IRenderBus& bus) override;
 		void Shutdown() override;
 
 	private:

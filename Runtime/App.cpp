@@ -58,9 +58,6 @@ namespace bdt
 		if (!m_appInitialized) 
 			return;
 
-		// [TEMP] FPS 로그를 약 1초 간격으로 출력하기 위한 기준 시간
-		double lastFPSLogTime = BDT_TIME.GetTime();
-
 		while (!BDT_WINDOW.ShouldClose())
 		{
 			// 1. Event Polling
@@ -68,13 +65,6 @@ namespace bdt
 
 			// 2. Time
 			BDT_TIME.Update();
-
-			// [TEMP] TimeManager가 계산한 평균 FPS 출력
-			{
-				const double currentTime = BDT_TIME.GetTime();
-				BDT_LOG_INFO("FPS: {:.1f}", BDT_TIME.GetFPS());
-				lastFPSLogTime = currentTime;
-			}
 
 			// 3. Input
 			BDT_INPUT.Update();
@@ -85,8 +75,10 @@ namespace bdt
 			// 5. Rendering
 			Render();
 
-			// 렌더링 결과를 버퍼 교환 전에 저장
-			HandleDebugSnapshot();
+			// [TEMP] 렌더링 결과를 버퍼 교환 전에 저장
+			{
+				HandleDebugSnapshot();
+			}
 
 			// 6. Swap Buffers
 			BDT_WINDOW.Update();

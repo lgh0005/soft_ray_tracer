@@ -1,5 +1,39 @@
-
 #version 460 core
+
+struct GPUStaticVertex
+{
+    vec4 position;
+    vec4 normal;
+    vec4 uv;
+};
+
+struct GPUMeshDescriptor
+{
+    uint vertexOffset;
+    uint vertexCount;
+    uint triangleOffset;
+    uint triangleCount;
+    uint meshType;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPUInstance
+{
+    mat4 worldMatrix;
+    mat4 inverseWorldMatrix;
+
+    uint meshIndex;
+    uint materialIndex;
+    uint boneOffset;
+    uint boneCount;
+
+    uint skinnedVertexOffset;
+    uint blasBoundsOffset;
+    uint pad1;
+    uint pad2;
+};
 
 layout(local_size_x = 64) in;
 
@@ -51,95 +85,35 @@ struct GPUHit
 // Geometry Structures
 // ==================================================
 
-struct GPUStaticVertex
-{
-    vec4 position;
-    vec4 normal;
-    vec4 uv;
-};
-
-struct GPUMeshDescriptor
-{
-    uint vertexOffset;
-    uint vertexCount;
-    uint triangleOffset;
-    uint triangleCount;
-    uint meshType;
-    uint pad0;
-    uint pad1;
-    uint pad2;
-};
-
 const uint MESH_TYPE_SKINNED = 1u; // ERTMeshType::Skinned
-
-struct GPUInstance
-{
-    mat4 worldMatrix;
-    mat4 inverseWorldMatrix;
-
-    uint meshIndex;
-    uint materialIndex;
-    uint boneOffset;
-    uint boneCount;
-
-    // GPU Skinning
-    uint skinnedVertexOffset;
-    uint pad0;
-    uint pad1;
-    uint pad2;
-};
 
 // ==================================================
 // SSBO
 // ==================================================
 
 // Binding 0: Current Ray Queue
-layout(std430, binding = 0) readonly buffer RayBuffer
-{
-    GPURayWorkItem rays[];
-};
+layout(std430, binding = 0) readonly buffer RayBuffer { GPURayWorkItem rays[]; };
 
 // Binding 1: Hit Buffer
-layout(std430, binding = 1) writeonly buffer HitBuffer
-{
-    GPUHit hits[];
-};
+layout(std430, binding = 1) writeonly buffer HitBuffer { GPUHit hits[]; };
 
-// Binding 2: Static Vertex Buffer
-layout(std430, binding = 2) readonly buffer VertexBuffer
-{
-    GPUStaticVertex vertices[];
-};
+// Binding 3: Static Vertex Buffer
+layout(std430, binding = 3) readonly buffer VertexBuffer { GPUStaticVertex vertices[]; };
 
-// Binding 3: Triangle Index Buffer
-layout(std430, binding = 3) readonly buffer IndexBuffer
-{
-    uint indices[];
-};
+// Binding 4: Triangle Index Buffer
+layout(std430, binding = 4) readonly buffer IndexBuffer { uint indices[]; };
 
-// Binding 4: Mesh Descriptor Buffer
-layout(std430, binding = 4) readonly buffer MeshBuffer
-{
-    GPUMeshDescriptor meshes[];
-};
+// Binding 5: Mesh Descriptor Buffer
+layout(std430, binding = 5) readonly buffer MeshBuffer { GPUMeshDescriptor meshes[]; };
 
-// Binding 5: Instance Buffer
-layout(std430, binding = 5) readonly buffer InstanceBuffer
-{
-    GPUInstance instances[];
-};
+// Binding 6: Instance Buffer
+layout(std430, binding = 6) readonly buffer InstanceBuffer { GPUInstance instances[]; };
 
-// Binding 8: GPU Skinned Output
-layout(std430, binding = 8) readonly buffer SkinnedOutputBuffer
-{
-    GPUStaticVertex outputVertices[];
-};
+// Binding 9: GPU Skinned Output
+layout(std430, binding = 9) readonly buffer SkinnedOutputBuffer { GPUStaticVertex outputVertices[]; };
 
-// Binding 10: Current Ray Counter
-layout(std430, binding = 10) readonly buffer RayCounterBuffer
-{
-    uint rayCount;
-};
+// Binding 11: Current Ray Counter
+layout(std430, binding = 11) readonly buffer RayCounterBuffer { uint rayCount; };
 
 // ==================================================
 // Uniforms
@@ -151,7 +125,7 @@ layout(std140, binding = 1) uniform RTFrameData
 {
     uint uRayCount;
     uint uInstanceCount;
-    uint _pad0;
+    uint uTLASDescriptorIndex;
     uint _pad1;
 };
 
@@ -159,8 +133,8 @@ layout(std140, binding = 1) uniform RTFrameData
 // Ray-Triangle Intersection
 // Moller-Trumbore Algorithm
 // ==================================================
-
-bool IntersectTriangle(
+bool IntersectTriangle
+(
     vec3 rayOrigin,
     vec3 rayDirection,
     vec3 v0,
@@ -172,35 +146,24 @@ bool IntersectTriangle(
 {
     vec3 edge1 = v1 - v0;
     vec3 edge2 = v2 - v0;
-
     vec3 pvec = cross(rayDirection, edge2);
-
     float determinant = dot(edge1, pvec);
 
     // Double-sided intersection
-    if (abs(determinant) < EPSILON)
-        return false;
+    if (abs(determinant) < EPSILON) return false;
 
     float invDet = 1.0 / determinant;
-
     vec3 tvec = rayOrigin - v0;
-
     u = dot(tvec, pvec) * invDet;
-
-    if (u < 0.0 || u > 1.0)
-        return false;
+    if (u < 0.0 || u > 1.0) return false;
 
     vec3 qvec = cross(tvec, edge1);
 
     v = dot(rayDirection, qvec) * invDet;
 
-    if (v < 0.0 || u + v > 1.0)
-        return false;
-
+    if (v < 0.0 || u + v > 1.0) return false;
     t = dot(edge2, qvec) * invDet;
-
-    if (t <= EPSILON)
-        return false;
+    if (t <= EPSILON) return false;
 
     return true;
 }
@@ -212,18 +175,13 @@ bool IntersectTriangle(
 GPUHit FindClosestHit(GPURay ray)
 {
     GPUHit closestHit;
-
-    closestHit.intersection =
-        vec4(MAX_RAY_DISTANCE, 0.0, 0.0, 0.0);
-
+    closestHit.intersection = vec4(MAX_RAY_DISTANCE, 0.0, 0.0, 0.0);
     closestHit.identifiers = uvec4(0u);
 
     float closestT = MAX_RAY_DISTANCE;
 
     // 모든 Instance 순회
-    for (uint instanceID = 0u;
-         instanceID < uInstanceCount;
-         ++instanceID)
+    for (uint instanceID = 0u; instanceID < uInstanceCount; ++instanceID)
     {
         GPUInstance instance = instances[instanceID];
 
@@ -231,10 +189,7 @@ GPUHit FindClosestHit(GPURay ray)
             meshes[instance.meshIndex];
 
         // World Ray -> Local Ray
-        vec3 localOrigin = (
-            instance.inverseWorldMatrix *
-            vec4(ray.origin.xyz, 1.0)
-        ).xyz;
+        vec3 localOrigin = (instance.inverseWorldMatrix * vec4(ray.origin.xyz, 1.0)).xyz;
 
         vec3 localDirection = (
             instance.inverseWorldMatrix *

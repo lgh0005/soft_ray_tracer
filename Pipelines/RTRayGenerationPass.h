@@ -11,7 +11,7 @@ namespace bdt
 	public:
 		virtual ~RTRayGenerationPass() override;
 		static RTRayGenerationPassUPtr Create();
-		virtual void Execute(IRenderBus& bus) override;
+		virtual bool Execute(IRenderBus& bus) override;
 		virtual void Shutdown() override;
 
 	private:

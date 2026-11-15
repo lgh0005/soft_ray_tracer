@@ -27,8 +27,8 @@ struct GPUAccumPixel
 // SSBO
 // ==================================================
 
-// Binding 13: Pixel Accumulation
-layout(std430, binding = 13) readonly buffer AccumulationBuffer
+// Binding 14: Pixel Accumulation
+layout(std430, binding = 14) readonly buffer AccumulationBuffer
 {
     GPUAccumPixel accumulation[];
 };
@@ -72,10 +72,16 @@ void main()
         float(value.b)
     ) * INV_ACCUM_SCALE;
 
-    // 6. Store HDR Radiance
+    // [TEMP] 후처리 패스 연결 전까지 노출 1.0의 톤 매핑과 감마 보정 적용
+    const float exposure = 1.0;
+    const float gamma = 2.2;
+    vec3 displayColor = vec3(1.0) - exp(-max(radiance, vec3(0.0)) * exposure);
+    displayColor = pow(displayColor, vec3(1.0 / gamma));
+
+    // [TEMP] 현재는 HDR 대신 표시용 색상을 저장
     imageStore(
         outputImage,
         pixel,
-        vec4(radiance, 1.0)
+        vec4(displayColor, 1.0)
     );
 }

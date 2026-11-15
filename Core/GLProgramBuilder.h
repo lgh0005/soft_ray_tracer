@@ -22,6 +22,8 @@ namespace bdt
         uint32 Build(const List<ShaderFile>& files, String* error = nullptr);
 
     private:
+        static String GetShaderLog(uint32 shaderID);
+        static String GetProgramLog(uint32 programID);
         void ClearShaders();
 
     private:

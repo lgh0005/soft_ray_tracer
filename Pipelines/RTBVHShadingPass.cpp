@@ -22,27 +22,27 @@ namespace bdt
     {
         m_shadingShader = BDT_RESOURCE.LoadComputeShader
         (
-            "RT.BruteForce.Shading",
-            { { GL_COMPUTE_SHADER, "Assets/Default/Shaders/bdt_rt_brute_force_shading.comp" } }
+            "RT.BVH.Shading",
+            { { GL_COMPUTE_SHADER, "Assets/Default/Shaders/bdt_rt_bvh_shading.comp" } }
         );
 
         return true;
     }
 
-    void RTBVHShadingPass::Execute(IRenderBus& bus)
+    bool RTBVHShadingPass::Execute(IRenderBus& bus)
     {
         auto& rtBus = static_cast<RTBVHBus&>(bus);
         const auto shader = m_shadingShader.Get();
-        if (!shader || !shader->IsValid()) return;
+        if (!shader || !shader->IsValid()) return false;
 
         RTRayQueue* queue = rtBus.GetRayQueue();
-        if (!queue) return;
+        if (!queue) return false;
 
         // 1. GPU Buffer 및 Output Texture 확인
         auto* rayBuffer = rtBus.GetRayBuffer();
         auto* hitBuffer = rtBus.GetHitBuffer();
         auto* outputTexture = rtBus.GetOutputTexture();
-        if (!rayBuffer || !hitBuffer || !outputTexture) return;
+        if (!rayBuffer || !hitBuffer || !outputTexture) return false;
 
         // 2. Ray / Hit SSBO 바인딩
         rayBuffer->Bind(static_cast<uint32>(ERTStorageBinding::Ray));
@@ -74,6 +74,7 @@ namespace bdt
 
         // 9. Cleanup
         ComputeShader::Unbind();
+        return true;
     }
 
     void RTBVHShadingPass::Shutdown()

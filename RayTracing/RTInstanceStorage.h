@@ -3,6 +3,7 @@
 
 namespace bdt
 {
+    class RenderObject;
     BDT_CLASS_PTR(GLStorageBuffer)
     BDT_CLASS_PTR(RTInstanceStorage)
 
@@ -18,9 +19,10 @@ namespace bdt
         void Clear();
         void Shutdown();
 
-        bool AddInstance(const GPUInstance& instance, uint32& idx);
+        bool AddInstance(const GPUInstance& instance, uint32& idx, const RenderObject* source = nullptr);
         bool AppendBoneMatrices(const List<mat4>& matrices, uint32& offset);
         bool AllocateSkinnedVertices(uint32 vertexCount, uint32& vertexOffset);
+        bool UpdateBLASBoundsOffsets(const List<uint32>& offsets);
         
         void BindInstanceBuffer() const;
         void BindBoneBuffer() const;
@@ -31,6 +33,8 @@ namespace bdt
         uint32 GetSkinnedVertexCount() const;
         uint32 GetMaxSkinnedVertexCount() const;
         const List<GPUInstance>& GetInstances() const;
+        const List<const RenderObject*>& GetInstanceSources() const;
+        const List<mat4>& GetBoneMatrices() const;
 
     private:
         bool UploadInstanceBuffer();
@@ -45,6 +49,7 @@ namespace bdt
 
         // CPU Instance Data
         List<GPUInstance> m_instances;
+        List<const RenderObject*> m_instanceSources;
         List<mat4> m_boneMatrices;
 
         // GPU Skinning Output

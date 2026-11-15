@@ -52,17 +52,19 @@ namespace bdt
 		return true;
 	}
 
-	void MySimpleDeferredShadingPass::Execute(IRenderBus& bus)
+	bool MySimpleDeferredShadingPass::Execute(IRenderBus& bus)
 	{
 		// 1. RenderBus 및 RenderScene 가져오기
 		auto* geometryBus = static_cast<MySimpleBus*>(&bus);
 		const RenderScene* scene = geometryBus->GetRenderScene();
 		MySimpleGBuffer* gBuffer = geometryBus->GetGBuffer();
 		RenderScreen* screen = geometryBus->GetRenderScreen();
+		if (!scene || !gBuffer || !screen) return false;
+		if (!m_shadowSampler || !m_linearSampler || !m_prefilterSampler) return false;
 
 		// 2. 비동기 셰이더 로딩 상태 확인
 		const auto shader = m_outputShader.Get();
-		if (!shader || !shader->IsValid()) return;
+		if (!shader || !shader->IsValid()) return false;
 
 		// 3. Shadow Texture Array 획득
 		RenderTextureArray2D* shadowTexture = geometryBus->GetShadowTextureArray();
@@ -86,14 +88,13 @@ namespace bdt
 
 		// 7. Shadow Texture Array 및 전용 Sampler 바인딩
 		const uint32 shadowSlot = static_cast<uint32>(EGBufferTextureSlot::Count);
-		glBindTextureUnit(shadowSlot, shadowTexture->GetTextureID());
+		glBindTextureUnit(shadowSlot, shadowTexture ? shadowTexture->GetTextureID() : 0);
 		m_shadowSampler->Bind(shadowSlot);
 
 		// 6. IBL Textures
 		const uint32 irradianceSlot = shadowSlot + 1;
 		const uint32 prefilteredSlot = shadowSlot + 2;
 		const uint32 brdfSlot = shadowSlot + 3;
-
 		if (iblReady)
 		{
 			ibl->GetIrradiance()->Bind(irradianceSlot);
@@ -132,6 +133,7 @@ namespace bdt
 		screen->Unbind();
 
 		glDepthMask(GL_TRUE);
+		return true;
 	}
 
 	void MySimpleDeferredShadingPass::Shutdown()

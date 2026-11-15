@@ -1,6 +1,61 @@
 
 #version 460 core
 
+//[수정] C++ GPU 데이터 배치와 맞춘 구조체 직접 선언
+
+struct GPUStaticVertex
+{
+    vec4 position;
+    vec4 normal;
+    vec4 uv;
+};
+
+struct GPUMeshDescriptor
+{
+    uint vertexOffset;
+    uint vertexCount;
+    uint triangleOffset;
+    uint triangleCount;
+    uint meshType;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPUInstance
+{
+    mat4 worldMatrix;
+    mat4 inverseWorldMatrix;
+
+    uint meshIndex;
+    uint materialIndex;
+    uint boneOffset;
+    uint boneCount;
+
+    uint skinnedVertexOffset;
+    uint blasBoundsOffset;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPURTMaterial
+{
+    vec4 albedoFactor;
+    vec4 emission;
+    float metallicFactor;
+    float roughnessFactor;
+    float ior;
+    float transmission;
+    uint albedoTextureIndex;
+    uint normalTextureIndex;
+    uint aoTextureIndex;
+    uint roughnessTextureIndex;
+    uint emissionTextureIndex;
+    uint reservedTextureIndex;
+    uint metallicTextureIndex;
+    uint specularTextureIndex;
+};
+
 layout(local_size_x = 64) in;
 
 // ==================================================
@@ -65,54 +120,9 @@ struct GPUHit
 // Geometry Structures
 // ==================================================
 
-struct GPUStaticVertex
-{
-    vec4 position;
-    vec4 normal;
-    vec4 uv;
-};
-
-struct GPUMeshDescriptor
-{
-    uint vertexOffset;
-    uint vertexCount;
-    uint triangleOffset;
-    uint triangleCount;
-    uint meshType;
-    uint pad0;
-    uint pad1;
-    uint pad2;
-};
-
 const uint MESH_TYPE_SKINNED = 1u; // ERTMeshType::Skinned
 
-struct GPUInstance
-{
-    mat4 worldMatrix;
-    mat4 inverseWorldMatrix;
-
-    uint meshIndex;
-    uint materialIndex;
-    uint boneOffset;
-    uint boneCount;
-
-    uint skinnedVertexOffset;
-    uint pad0;
-    uint pad1;
-    uint pad2;
-};
-
-struct GPURTMaterial
-{
-    vec4 albedoFactor;
-    vec4 emission;
-    float metallicFactor;
-    float roughnessFactor;
-    float ior;
-    float transmission;
-};
-
-layout(std430, binding = 14) readonly buffer MaterialBuffer
+layout(std430, binding = 15) readonly buffer MaterialBuffer
 {
     GPURTMaterial materials[];
 };
@@ -145,44 +155,44 @@ layout(std430, binding = 1) readonly buffer HitBuffer
     GPUHit hits[];
 };
 
-// Binding 2: Static Vertex Buffer
-layout(std430, binding = 2) readonly buffer VertexBuffer
+// Binding 3: Static Vertex Buffer
+layout(std430, binding = 3) readonly buffer VertexBuffer
 {
     GPUStaticVertex vertices[];
 };
 
-// Binding 3: Triangle Index Buffer
-layout(std430, binding = 3) readonly buffer IndexBuffer
+// Binding 4: Triangle Index Buffer
+layout(std430, binding = 4) readonly buffer IndexBuffer
 {
     uint indices[];
 };
 
-// Binding 4: Mesh Descriptor Buffer
-layout(std430, binding = 4) readonly buffer MeshBuffer
+// Binding 5: Mesh Descriptor Buffer
+layout(std430, binding = 5) readonly buffer MeshBuffer
 {
     GPUMeshDescriptor meshes[];
 };
 
-// Binding 5: Instance Buffer
-layout(std430, binding = 5) readonly buffer InstanceBuffer
+// Binding 6: Instance Buffer
+layout(std430, binding = 6) readonly buffer InstanceBuffer
 {
     GPUInstance instances[];
 };
 
-// Binding 8: Skinned Output Buffer
-layout(std430, binding = 8) readonly buffer SkinnedOutputBuffer
+// Binding 9: Skinned Output Buffer
+layout(std430, binding = 9) readonly buffer SkinnedOutputBuffer
 {
     GPUStaticVertex outputVertices[];
 };
 
-// Binding 10: Current Ray Counter
-layout(std430, binding = 10) readonly buffer RayCounterBuffer
+// Binding 11: Current Ray Counter
+layout(std430, binding = 11) readonly buffer RayCounterBuffer
 {
     uint rayCount;
 };
 
-// Binding 13: Accumulation Buffer
-layout(std430, binding = 13) buffer AccumulationBuffer
+// Binding 14: Accumulation Buffer
+layout(std430, binding = 14) buffer AccumulationBuffer
 {
     GPUAccumPixel accumulation[];
 };
@@ -195,7 +205,7 @@ layout(std140, binding = 1) uniform RTFrameData
 {
     uint uPrimaryRayCount;
     uint uInstanceCount;
-    uint _pad0;
+    uint uTLASDescriptorIndex;
     uint _pad1;
 };
 
@@ -372,6 +382,93 @@ float EvaluateDielectricFresnel(vec3 incident, vec3 worldNormal, float ior)
 // Main
 // ==================================================
 
+// Sampler indices need constant-index branches because rays access different materials.
+//[수정] RT 머티리얼 텍스처 유닛 및 상수 인덱스 샘플링 분기
+layout(binding = 0) uniform sampler2D uMaterialTextures[16];
+
+vec4 SampleMaterialTexture(uint index, vec2 uv)
+{
+    switch (index)
+    {
+        case 0u: return textureLod(uMaterialTextures[0], uv, 0.0);
+        case 1u: return textureLod(uMaterialTextures[1], uv, 0.0);
+        case 2u: return textureLod(uMaterialTextures[2], uv, 0.0);
+        case 3u: return textureLod(uMaterialTextures[3], uv, 0.0);
+        case 4u: return textureLod(uMaterialTextures[4], uv, 0.0);
+        case 5u: return textureLod(uMaterialTextures[5], uv, 0.0);
+        case 6u: return textureLod(uMaterialTextures[6], uv, 0.0);
+        case 7u: return textureLod(uMaterialTextures[7], uv, 0.0);
+        case 8u: return textureLod(uMaterialTextures[8], uv, 0.0);
+        case 9u: return textureLod(uMaterialTextures[9], uv, 0.0);
+        case 10u: return textureLod(uMaterialTextures[10], uv, 0.0);
+        case 11u: return textureLod(uMaterialTextures[11], uv, 0.0);
+        case 12u: return textureLod(uMaterialTextures[12], uv, 0.0);
+        case 13u: return textureLod(uMaterialTextures[13], uv, 0.0);
+        case 14u: return textureLod(uMaterialTextures[14], uv, 0.0);
+        case 15u: return textureLod(uMaterialTextures[15], uv, 0.0);
+        default: return vec4(1.0);
+    }
+}
+
+//[수정] Hit UV와 텍스처를 셰이딩 물성 / 법선에 반영
+float ApplyRTTextures(GPUHit hit, GPUInstance instance, inout GPURTMaterial material, inout vec3 worldNormal)
+{
+    GPUMeshDescriptor mesh = meshes[instance.meshIndex];
+    uint indexBase = hit.identifiers.y * 3u;
+    uint i0 = indices[indexBase];
+    uint i1 = indices[indexBase + 1u];
+    uint i2 = indices[indexBase + 2u];
+    GPUStaticVertex v0, v1, v2;
+    if (mesh.meshType == MESH_TYPE_SKINNED)
+    {
+        uint offset = instance.skinnedVertexOffset;
+        v0 = outputVertices[offset + i0];
+        v1 = outputVertices[offset + i1];
+        v2 = outputVertices[offset + i2];
+    }
+    else
+    {
+        uint offset = mesh.vertexOffset;
+        v0 = vertices[offset + i0];
+        v1 = vertices[offset + i1];
+        v2 = vertices[offset + i2];
+    }
+    float u = hit.intersection.y;
+    float v = hit.intersection.z;
+    vec2 uv = (1.0 - u - v) * v0.uv.xy + u * v1.uv.xy + v * v2.uv.xy;
+    material.albedoFactor *= SampleMaterialTexture(material.albedoTextureIndex, uv);
+    material.roughnessFactor *= SampleMaterialTexture(material.roughnessTextureIndex, uv).r;
+    material.metallicFactor *= SampleMaterialTexture(material.metallicTextureIndex, uv).r;
+    material.emission.rgb *= SampleMaterialTexture(material.emissionTextureIndex, uv).rgb;
+    float ao = SampleMaterialTexture(material.aoTextureIndex, uv).r;
+
+    if (material.normalTextureIndex != 0xffffffffu)
+    {
+        vec2 duv1 = v1.uv.xy - v0.uv.xy;
+        vec2 duv2 = v2.uv.xy - v0.uv.xy;
+        float determinant = duv1.x * duv2.y - duv1.y * duv2.x;
+        if (abs(determinant) > 1e-8)
+        {
+            vec3 e1 = mat3(instance.worldMatrix) * (v1.position.xyz - v0.position.xyz);
+            vec3 e2 = mat3(instance.worldMatrix) * (v2.position.xyz - v0.position.xyz);
+            vec3 tangent = (e1 * duv2.y - e2 * duv1.y) / determinant;
+            vec3 bitangent = (e2 * duv1.x - e1 * duv2.x) / determinant;
+            tangent -= worldNormal * dot(worldNormal, tangent);
+            if (dot(tangent, tangent) > 1e-12)
+            {
+                tangent = normalize(tangent);
+                float handedness = dot(cross(worldNormal, tangent), bitangent) < 0.0 ? -1.0 : 1.0;
+                bitangent = handedness * cross(worldNormal, tangent);
+                // BC5 and RGB normal maps share XY; reconstruct Z as in the raster path.
+                vec2 xy = SampleMaterialTexture(material.normalTextureIndex, uv).rg * 2.0 - 1.0;
+                vec3 normal = vec3(xy, sqrt(max(1.0 - dot(xy, xy), 0.0)));
+                worldNormal = normalize(mat3(tangent, bitangent, worldNormal) * normal);
+            }
+        }
+    }
+    return clamp(ao, 0.0, 1.0);
+}
+
 void main()
 {
     // 1. Current Ray Queue Index
@@ -440,6 +537,8 @@ void main()
         {
             vec3 worldNormal =
                 GetWorldNormal(hit, instance);
+            //[수정] 텍스처 물성을 적용한 뒤 기존 단순 조명 계산
+            float ao = ApplyRTTextures(hit, instance, material, worldNormal);
 
             // ==========================================
             // Normal Debug
@@ -464,7 +563,7 @@ void main()
                 vec3 albedo = clamp(material.albedoFactor.rgb, vec3(0.0), vec3(1.0));
                 // Specular reflection/transmission is evaluated on later bounces.
                 radiance = max(material.emission.rgb, vec3(0.0)) +
-                    diffuseWeight * EvaluateDiffuse(worldNormal, albedo);
+                    diffuseWeight * EvaluateDiffuse(worldNormal, albedo) * ao;
             }
         }
     }

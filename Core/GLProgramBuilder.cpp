@@ -3,35 +3,32 @@
 
 namespace bdt
 {
-    namespace
+    String GLProgramBuilder::GetShaderLog(uint32 shaderID)
     {
-        String GetShaderLog(uint32 shaderID)
-        {
-            GLint length = 0;
-            glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &length);
-            if (length <= 1) return {};
+        GLint length = 0;
+        glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &length);
+        if (length <= 1) return {};
 
-            String log(static_cast<usize>(length), '\0');
-            GLsizei written = 0;
-            glGetShaderInfoLog(shaderID, length, &written, log.data());
+        String log(static_cast<usize>(length), '\0');
+        GLsizei written = 0;
+        glGetShaderInfoLog(shaderID, length, &written, log.data());
 
-            log.resize(static_cast<usize>(written));
-            return log;
-        }
+        log.resize(static_cast<usize>(written));
+        return log;
+    }
 
-        String GetProgramLog(uint32 programID)
-        {
-            GLint length = 0;
-            glGetProgramiv(programID, GL_INFO_LOG_LENGTH, &length);
-            if (length <= 1) return {};
+    String GLProgramBuilder::GetProgramLog(uint32 programID)
+    {
+        GLint length = 0;
+        glGetProgramiv(programID, GL_INFO_LOG_LENGTH, &length);
+        if (length <= 1) return {};
 
-            String log(static_cast<usize>(length), '\0');
-            GLsizei written = 0;
-            glGetProgramInfoLog(programID, length, &written, log.data());
+        String log(static_cast<usize>(length), '\0');
+        GLsizei written = 0;
+        glGetProgramInfoLog(programID, length, &written, log.data());
 
-            log.resize(static_cast<usize>(written));
-            return log;
-        }
+        log.resize(static_cast<usize>(written));
+        return log;
     }
 
     GLProgramBuilder::GLProgramBuilder()
@@ -84,17 +81,15 @@ namespace bdt
     bool GLProgramBuilder::AttachShaderFile(const ShaderFile& file, String* error)
     {
         // 1. 셰이더 파일 읽기
-        std::ifstream stream(file.path, std::ios::binary);
-
+        InputFileStream stream(file.path, InputFileStream::binary);
         if (!stream.is_open())
         {
             if (error) *error = "Failed to open shader file: " + file.path;
             return false;
         }
 
-        std::ostringstream buffer;
+        OutputStringStream buffer;
         buffer << stream.rdbuf();
-
         if (stream.bad())
         {
             if (error) *error = "Failed to read shader file: " + file.path;
@@ -141,7 +136,6 @@ namespace bdt
     uint32 GLProgramBuilder::Build(const List<ShaderFile>& files, String* error)
     {
         if (error) error->clear();
-
         if (files.empty()) return 0;
 
         // 1. 전달된 셰이더 파일 컴파일

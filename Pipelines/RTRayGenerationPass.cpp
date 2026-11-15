@@ -29,20 +29,20 @@ namespace bdt
 		return true;
 	}
 
-	void RTRayGenerationPass::Execute(IRenderBus& bus)
+	bool RTRayGenerationPass::Execute(IRenderBus& bus)
 	{
 		auto& rtBus = static_cast<RTBruteForceBus&>(bus);
 		const auto shader = m_rayGenerationShader.Get();
-		if (!shader || !shader->IsValid()) return;
+		if (!shader || !shader->IsValid()) return false;
 
 		const uint32 width = rtBus.GetWidth();
 		const uint32 height = rtBus.GetHeight();
-		if (width == 0 || height == 0) return;
+		if (width == 0 || height == 0) return false;
 
 		auto* rayBuffer = rtBus.GetRayBuffer();
 		auto* outputTexture = rtBus.GetOutputTexture();
 		if (!rayBuffer || !outputTexture)
-			return;
+			return false;
 
 		// 1. Ray SSBO 바인딩
 		rayBuffer->Bind(static_cast<uint32>(ERTStorageBinding::Ray));
@@ -71,6 +71,7 @@ namespace bdt
 		// 5. 바인딩 해제
 		glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
 		ComputeShader::Unbind();
+		return true;
 	}
 
 	void RTRayGenerationPass::Shutdown()

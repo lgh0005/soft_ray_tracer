@@ -45,6 +45,7 @@ namespace bdt
 	{
 		Directional,
 		Point,
-		Spot
+		Spot,
+		RectArea
 	};
 }

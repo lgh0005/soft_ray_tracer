@@ -1,5 +1,4 @@
 #pragma once
-#include <Core/Types.h>
 #include "ResourceHandle.h"
 #include "Image2D.h"
 

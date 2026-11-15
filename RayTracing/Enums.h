@@ -10,7 +10,7 @@ namespace bdt
         Hit,
 
         // Geometry
-        StaticVertex,
+        StaticVertex = 3,
         Triangle,
         Mesh,
         Instance,
@@ -31,6 +31,7 @@ namespace bdt
         BVHBounds,
         BVHPrimitive,
         BVHDescriptor,
+        BVHSkinnedBounds,
 
         Count
     };
@@ -54,11 +55,11 @@ namespace bdt
         Skinned
     };
 
-    enum class EBVHDirtyFlag : uint32
-    {
-        None      = 0,
-        BLAS      = 1u << 0,
-        TLAS      = 1u << 1,
-        TLASRefit = 1u << 2
-    };
+    //enum class EBVHDirtyFlag : uint32
+    //{
+    //    None      = 0,
+    //    BLAS      = 1u << 0,
+    //    TLAS      = 1u << 1,
+    //    TLASRefit = 1u << 2
+    //};
 }

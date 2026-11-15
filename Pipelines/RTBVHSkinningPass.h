@@ -1,8 +1,5 @@
 #pragma once
-#include <Core/Defines.h>
-#include <Core/Types.h>
 #include <Rendering/IRenderPass.h>
-#include <Resources/ResourceHandle.h>
 
 namespace bdt
 {
@@ -17,7 +14,7 @@ namespace bdt
     public:
         virtual ~RTBVHSkinningPass() override;
         static RTBVHSkinningPassUPtr Create();
-        virtual void Execute(IRenderBus& bus) override;
+        virtual bool Execute(IRenderBus& bus) override;
         virtual void Shutdown() override;
 
     private:

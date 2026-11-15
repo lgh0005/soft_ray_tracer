@@ -27,6 +27,7 @@ namespace bdt
     {
         // CPU Instance Data
         m_instances.clear();
+        m_instanceSources.clear();
         m_boneMatrices.clear();
         m_skinnedVertexCount = 0;
         m_maxSkinnedVertexCount = 0;
@@ -40,19 +41,24 @@ namespace bdt
         // GPU Storage
         m_instanceBuffer.reset();
         m_boneBuffer.reset();
+        m_skinnedOutputBuffer.reset();
+        m_skinnedVertexCount = 0;
+        m_maxSkinnedVertexCount = 0;
 
         // CPU Instance Data
         m_instances.clear();
+        m_instanceSources.clear();
         m_boneMatrices.clear();
 
         m_isStorageDirty = false;
     }
 
-    bool RTInstanceStorage::AddInstance(const GPUInstance& instance, uint32& idx)
+    bool RTInstanceStorage::AddInstance(const GPUInstance& instance, uint32& idx, const RenderObject* source)
     {
         if (m_instances.size() >= MaxValue<uint32>) return false;
         idx = static_cast<uint32>(m_instances.size());
         m_instances.push_back(instance);
+        m_instanceSources.push_back(source);
         m_isStorageDirty = true;
         return true;
     }
@@ -87,6 +93,24 @@ namespace bdt
         m_maxSkinnedVertexCount = glm::max(m_maxSkinnedVertexCount, vertexCount);
         if (vertexCount > 0) m_isStorageDirty = true;
 
+        return true;
+    }
+
+    bool RTInstanceStorage::UpdateBLASBoundsOffsets(const List<uint32>& offsets)
+    {
+        if (offsets.size() != m_instances.size())
+            return false;
+
+        bool changed = false;
+        for (usize i = 0; i < offsets.size(); ++i)
+        {
+            GPUInstance& instance = m_instances[i];
+            if (instance.blasBoundsOffset == offsets[i]) continue;
+            instance.blasBoundsOffset = offsets[i];
+            changed = true;
+        }
+
+        if (changed) m_isStorageDirty = true;
         return true;
     }
 
@@ -162,5 +186,15 @@ namespace bdt
     const List<GPUInstance>& RTInstanceStorage::GetInstances() const
     {
         return m_instances;
+    }
+
+    const List<const RenderObject*>& RTInstanceStorage::GetInstanceSources() const
+    {
+        return m_instanceSources;
+    }
+
+    const List<mat4>& RTInstanceStorage::GetBoneMatrices() const
+    {
+        return m_boneMatrices;
     }
 }

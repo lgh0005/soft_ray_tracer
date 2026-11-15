@@ -55,6 +55,13 @@ struct LightData
     float attenuationQuadratic;
 
     int shadowIndex;
+
+    vec4 areaRight;
+    vec4 areaUp;
+    vec4 areaSize;
+    uint lightFlags;
+    uint pad0;
+    uint pad1;
 };
 
 layout(std430, binding = 2) readonly buffer LightBuffer
@@ -82,6 +89,7 @@ const float EPSILON = 0.0001;
 const uint LIGHT_DIRECTIONAL = 0u;
 const uint LIGHT_POINT = 1u;
 const uint LIGHT_SPOT = 2u;
+const uint LIGHT_RECT_AREA = 3u; // Area light integration is not implemented yet.
 
 // GGX Normal Distribution
 float DistributionGGX(vec3 N, vec3 H, float roughness)

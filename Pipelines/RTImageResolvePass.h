@@ -10,7 +10,7 @@ namespace bdt
     public:
         virtual ~RTImageResolvePass() override;
         static RTImageResolvePassUPtr Create();
-        virtual void Execute(IRenderBus& bus) override;
+        virtual bool Execute(IRenderBus& bus) override;
         virtual void Shutdown() override;
 
     private:

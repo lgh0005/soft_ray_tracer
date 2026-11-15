@@ -22,7 +22,8 @@ namespace bdt
         // UBOs
         m_cameraBuffer = GLBuffer::Create(sizeof(CameraData), nullptr, GL_DYNAMIC_STORAGE_BIT);
 		m_frameDataBuffer = GLBuffer::Create(sizeof(RTFrameData), nullptr, GL_DYNAMIC_STORAGE_BIT);
-        if (!m_cameraBuffer || !m_frameDataBuffer) return false;
+        m_lightBuffer = GLStorageBuffer::Create();
+        if (!m_cameraBuffer || !m_frameDataBuffer || !m_lightBuffer) return false;
 
         // Ray Tracing Buffers
         m_rayQueue = RTRayQueue::Create();
@@ -52,13 +53,15 @@ namespace bdt
         m_cameraBuffer->BindBase(GL_UNIFORM_BUFFER, static_cast<uint32>(EUniformBinding::Camera));
 
         // 4. Prepare Geometry / Instances
-        if (!BDT_INSTANCE.Prepare(scene)) return false;
+        if (!BDT_INSTANCE.Prepare(scene))
+            return false;
 
-        // Instance 변경 감지 및 Dirty Flag 설정
+        // TODO : Instance 변경 감지 및 Dirty Flag 설정
         // (RTBVHBuilder 내부에서 처리)
 
         // 5. Prepare BVH
-		if (!m_bvhBuilder->Prepare()) return false;
+		if (!m_bvhBuilder->Prepare()) return  false;
+        if (!BDT_INSTANCE.Upload()) return false;
 
         // 5. RTFrame UBO
         const uint64 rayCount64 =static_cast<uint64>(width) * height;
@@ -67,6 +70,7 @@ namespace bdt
         RTFrameData frameData{};
         frameData.rayCount = rayCount;
         frameData.instanceCount = BDT_INSTANCE.GetInstanceCount();
+        frameData.tlasDescriptorIndex = m_bvhBuilder->GetStorage()->GetTLASDescriptorIndex();
         m_frameDataBuffer->SetData(0, sizeof(RTFrameData), &frameData);
         m_frameDataBuffer->BindBase(GL_UNIFORM_BUFFER, static_cast<uint32>(ERTUniformBinding::RTFrame));
 
@@ -83,12 +87,19 @@ namespace bdt
         m_rayQueue->BindRayCounter();
         m_rayQueue->BindNextRayCounter();
 
+        // 9. 조명 SSBO 업로드 및 실제 데이터 범위 바인딩
+        const auto& lights = scene.GetLights();
+        const uint64 lightBytes = static_cast<uint64>(lights.size()) * sizeof(LightData);
+        if (lightBytes > MaxValue<uint32>) return false;
+        if (!m_lightBuffer->Update(lights.data(), static_cast<uint32>(lightBytes))) return false;
+        m_lightBuffer->BindRange(static_cast<uint32>(EStorageBinding::Light));
+
         return true;
     }
 
     bool RTBVHBus::Resize(uint32 width, uint32 height)
     {
-        if (width == 0 || height == 0 || !m_rayQueue || !m_screen) return false;
+        if (width == 0 || height == 0) return false;
 
         // 3회 바운스의 반사·굴절 분기를 수용한다: Primary Ray당 최대 8개
         constexpr uint64 maxRayMultiplier = uint64{ 1 } << 3;
@@ -134,6 +145,7 @@ namespace bdt
         // Camera
         m_cameraBuffer.reset();
         m_frameDataBuffer.reset();
+        m_lightBuffer.reset();
 
         // Ray Tracing
         m_rayQueue.reset();
@@ -149,20 +161,22 @@ namespace bdt
 
     GLStorageBuffer* RTBVHBus::GetRayBuffer() const
     {
-        if (!m_rayQueue) return nullptr;
         return m_rayQueue->GetRayBuffer();
     }
 
     GLStorageBuffer* RTBVHBus::GetHitBuffer() const
     {
-        if (!m_rayQueue) return nullptr;
         return m_rayQueue->GetHitBuffer();
     }
 
     RTBVHStorage* RTBVHBus::GetBVHStorage() const
     {
-        if (!m_bvhBuilder) return nullptr;
         return m_bvhBuilder->GetStorage();
+    }
+
+    RTBVHBuilder* RTBVHBus::GetBVHBuilder() const
+    {
+        return m_bvhBuilder.get();
     }
 
     RTRayQueue* RTBVHBus::GetRayQueue() const

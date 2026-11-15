@@ -4,10 +4,9 @@
 namespace bdt
 {
 	BDT_CLASS_PTR(Mesh)
-	BDT_CLASS_PTR(Material)
-	BDT_CLASS_PTR(GLStorageBuffer)
 	BDT_CLASS_PTR(RTGeometryStorage)
 	BDT_CLASS_PTR(RTInstanceStorage)
+	BDT_CLASS_PTR(RTMaterialStorage)
 
 	class InstanceManager
 	{
@@ -16,7 +15,8 @@ namespace bdt
 	public:
 		bool Init();
 		void Shutdown();
-		bool Prepare(const RenderScene& scene);
+        bool Prepare(const RenderScene& scene);
+        bool Upload();
 
 	/*==================================//
 	//    Geometries for ray tracing    //
@@ -42,37 +42,36 @@ namespace bdt
 		void ClearInstances();
 		bool UploadInstances();
 		const List<GPUInstance>& GetInstances() const;
+
 		uint32 GetInstanceCount() const;
 		uint32 GetBoneMatrixCount() const;
 		uint32 GetSkinnedVertexCount() const;
 		uint32 GetMaxSkinnedVertexCount() const;
+		const List<mat4>& GetBoneMatrices() const;
+		const List<const RenderObject*>& GetInstanceSources() const;
 
-		bool AddInstance(const GPUInstance& instance, uint32& idx);
+		bool AddInstance(const GPUInstance& instance, uint32& idx, const RenderObject* source = nullptr);
 		bool AppendBoneMatrices(const List<mat4>& matrices, uint32& offset);
 		void BindInstanceBuffer() const;
 		void BindBoneBuffer() const;
 		void BindSkinnedOutputBuffer() const;
 
 		bool AllocateSkinnedVertices(uint32 vertexCount, uint32& vertexOffset);
+		bool UpdateBLASBoundsOffsets(const List<uint32>& offsets);
 
 	public:
 		void BindMaterialBuffer() const;
 		uint32 GetMaterialCount() const;
 
 	private:
-		bool RegisterMaterial(const Material* material, uint32& index);
 
 		// 개별 RenderObject를 GPUInstance로 변환
 		bool AppendRenderObject(const RenderObject& object);
 
 		// 현재 프레임의 Geometry / Instance GPU 업로드
-		bool Upload();
-
 		RTGeometryStorageUPtr m_geometryStorage;
 		RTInstanceStorageUPtr m_instanceStorage;
-		GLStorageBufferUPtr m_materialBuffer;
-		List<GPURTMaterial> m_materials;
-		Dictionary<const Material*, uint32> m_materialIndices;
+		RTMaterialStorageUPtr m_materialStorage;
 	};
 }
 

@@ -7,13 +7,15 @@ namespace bdt
 	namespace
 	{
 		constexpr cstr EnvironmentImagePath = "Assets/Default/Images/ferndale_studio_12_4k.ktx2";
+		constexpr cstr AlienSoldierModelPath = "Assets/ailensoldier2/aliensoldier.fbx";
+		constexpr cstr AlienIdlePath = "Assets/swat_guy/Standing Idle.fbx";
+		constexpr cstr AlienDancePath = "Assets/swat_guy/Chicken Dance.fbx";
 		constexpr cstr PlatformAlbedoPath = "Assets/Default/Images/sand-ground-textured.ktx2";
 		constexpr cstr SphereAlbedoPath = "Assets/MetalBall/worn-shiny-metal-albedo.ktx2";
 		constexpr cstr SphereNormalPath = "Assets/MetalBall/worn-shiny-metal-Normal-ogl.ktx2";
 		constexpr cstr SphereAOPath = "Assets/MetalBall/worn-shiny-metal-ao.ktx2";
 		constexpr cstr SphereRoughnessPath = "Assets/MetalBall/worn-shiny-metal-Roughness.ktx2";
 		constexpr cstr SphereMetallicPath = "Assets/MetalBall/worn-shiny-metal-Metallic.ktx2";
-
 		constexpr float ModelEmissionStrength = 8.0f;
 	}
 
@@ -38,6 +40,9 @@ namespace bdt
 	{
 		// 배경 이미지 설정
 		SetEnvironmentImage(EnvironmentImagePath);
+		BDT_RESOURCE.LoadModel(AlienSoldierModelPath);
+		BDT_RESOURCE.LoadAnimation(AlienIdlePath);
+		BDT_RESOURCE.LoadAnimation(AlienDancePath);
 
 		// 발판 머티리얼과 텍스처 로드
 		MaterialDesc platformDesc{};
@@ -73,12 +78,22 @@ namespace bdt
 	void RTBVHOptimizedWorld::Update(float deltaTime)
 	{
 		Super::Update(deltaTime);
+
+		// MyWorld와 동일하게 비동기 로드 후 갑옷의 거칠기와 발광 강도 설정
+		const auto model = BDT_RESOURCE.LoadModel(AlienSoldierModelPath).Get();
+		if (!model) return;
+		for (const auto& handle : model->GetMaterials())
+		{
+			if (auto material = handle.Get())
+			{
+				material->SetRoughnessFactor(0.5f);
+				material->SetEmissionStrength(ModelEmissionStrength);
+			}
+		}
 	}
 
 	void RTBVHOptimizedWorld::CreateActors()
 	{
-		// [TEMP 예시 씬 설정]
-
 		// 1. 메인 카메라 설정
 		CameraComponent* camera = GetMainCamera()->GetCameraComponent();
 		camera->SetPosition(vec3(0.0f, 1.0f, 4.0f));
@@ -88,11 +103,41 @@ namespace bdt
 		camera->SetFarPlane(1000.0f);
 		camera->SetViewportSize((uint32)BDT_WINDOW.GetFramebufferWidth(), (uint32)BDT_WINDOW.GetFramebufferHeight());
 
+		// 2. 구 사이 뒤쪽에 AlienSoldier 배치
+		auto* soldier = AddSkinnedModelActor("AlienSoldier", BDT_RESOURCE.LoadModel(AlienSoldierModelPath));
+		auto* renderer = soldier->GetSkinnedModelRenderer();
+		renderer->SetPosition(vec3(-0.75f, 0.0f, -0.75f));
+		renderer->SetRotation(quat(1.0f, 0.0f, 0.0f, 0.0f));
+		renderer->SetScale(vec3(0.01f));
+
+		// 3. 동일한 Mixamo 본 이름을 사용하는 Standing Idle 반복 재생
+		AnimController& controller = soldier->GetAnimComponent()->GetController();
+		controller.AddState("Idle", BDT_RESOURCE.LoadAnimation(AlienIdlePath), true, 1.0f);
+		controller.Play("Idle");
+
+		// 같은 모델을 공유하고 액터마다 서로 다른 클립 / 속도로 독립 재생
+		constexpr cstr additionalTags[] = { "AlienSoldier2", "AlienSoldier3", "AlienSoldier4" };
+		constexpr cstr additionalAnimations[] = { AlienDancePath, AlienDancePath, AlienIdlePath };
+		constexpr float additionalSpeeds[] = { 1.0f, 0.7f, 1.5f };
+		constexpr float additionalPositions[] = { -2.0f, 0.5f, 1.75f };
+		for (uint32 i = 0; i < 3; ++i)
+		{
+			auto* additionalSoldier = AddSkinnedModelActor(additionalTags[i], BDT_RESOURCE.LoadModel(AlienSoldierModelPath));
+			auto* additionalRenderer = additionalSoldier->GetSkinnedModelRenderer();
+			additionalRenderer->SetPosition(vec3(additionalPositions[i], 0.0f, -0.75f));
+			additionalRenderer->SetRotation(quat(1.0f, 0.0f, 0.0f, 0.0f));
+			additionalRenderer->SetScale(vec3(0.01f));
+
+			AnimController& additionalController = additionalSoldier->GetAnimComponent()->GetController();
+			additionalController.AddState("Default", BDT_RESOURCE.LoadAnimation(additionalAnimations[i]), true, additionalSpeeds[i]);
+			additionalController.Play("Default");
+		}
+
 		// 4. 윗면이 Y=0인 발판형 직육면체
 		auto* platform = AddPrimitiveActor("Platform", EPrimitiveType::Box, m_platformMaterial);
 		auto* platformRenderer = platform->GetPrimitiveRenderer();
 		platformRenderer->SetPosition(vec3(0.0f, -0.15f, 0.0f));
-		platformRenderer->SetScale(vec3(5.0f, 0.3f, 3.0f));
+		platformRenderer->SetScale(vec3(6.0f, 0.3f, 4.0f));
 
 		// 5. 발판 위에 구 3개를 중심 간격 1.5로 배치
 		constexpr cstr sphereTags[] = { "Sphere", "Sphere2", "Sphere3" };

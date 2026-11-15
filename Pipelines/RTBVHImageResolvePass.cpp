@@ -25,29 +25,30 @@ namespace bdt
             "RT.BruteForce.ImageResolve",
             { { GL_COMPUTE_SHADER, "Assets/Default/Shaders/bdt_rt_brute_force_image_resolve.comp" } }
         );
+
         return true;
     }
 
-    void RTBVHImageResolvePass::Execute(IRenderBus& bus)
+    bool RTBVHImageResolvePass::Execute(IRenderBus& bus)
     {
         auto& rtBus = static_cast<RTBVHBus&>(bus);
 
         const auto shader = m_resolveShader.Get();
         if (!shader || !shader->IsValid())
-            return;
+            return false;
 
         const uint32 width = rtBus.GetWidth();
         const uint32 height = rtBus.GetHeight();
         if (width == 0 || height == 0)
-            return;
+            return false;
 
         // 1. Resource 확인
         RTRayQueue* queue = rtBus.GetRayQueue();
         auto* outputTexture = rtBus.GetOutputTexture();
-        if (!queue || !outputTexture) return;
+        if (!queue || !outputTexture) return false;
 
         if (!queue->GetAccumulationBuffer())
-            return;
+            return false;
 
         // 2. Accumulation SSBO
         queue->BindAccumulationBuffer();
@@ -73,7 +74,7 @@ namespace bdt
         shader->Dispatch(groupX, groupY, 1);
 
         // 6. 이후 Graphics Pass에서 텍스처 읽기
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT);
 
         // 7. Cleanup
         glBindImageTexture
@@ -88,6 +89,7 @@ namespace bdt
         );
 
         ComputeShader::Unbind();
+        return true;
     }
 
     void RTBVHImageResolvePass::Shutdown()
