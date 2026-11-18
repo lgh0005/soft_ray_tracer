@@ -1,0 +1,28 @@
+#version 460 core
+layout(local_size_x=1) in;
+layout(rg32f,binding=0) uniform image2D distributionImage;
+void main()
+{
+    ivec2 size=imageSize(distributionImage); int height=size.y-1; float sum=0.0;
+    for(int y=0;y<height;++y)
+    {
+        float mass=imageLoad(distributionImage,ivec2(size.x-1,y)).r;
+        sum+=mass; imageStore(distributionImage,ivec2(y,height),vec4(sum,mass,0,0));
+    }
+    memoryBarrierImage();
+    // Store the probability represented by the rounded CDF intervals, not an idealized mass.
+    for(int y=0;y<height;++y)
+    {
+        float rowEnd=imageLoad(distributionImage,ivec2(y,height)).r;
+        float rowBegin=y==0?0.0:imageLoad(distributionImage,ivec2(y-1,height)).r;
+        float rowTotal=imageLoad(distributionImage,ivec2(size.x-1,y)).r;
+        float rowProbability=sum>0.0?(rowEnd-rowBegin)/sum:0.0;
+        for(int x=0;x<size.x;++x)
+        {
+            float columnEnd=imageLoad(distributionImage,ivec2(x,y)).r;
+            float columnBegin=x==0?0.0:imageLoad(distributionImage,ivec2(x-1,y)).r;
+            float probability=rowTotal>0.0?rowProbability*(columnEnd-columnBegin)/rowTotal:0.0;
+            imageStore(distributionImage,ivec2(x,y),vec4(columnEnd,probability,0,0));
+        }
+    }
+}

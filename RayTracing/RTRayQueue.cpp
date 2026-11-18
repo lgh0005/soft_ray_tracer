@@ -25,8 +25,15 @@ namespace bdt
         // Ray Queues
         m_rayBuffer = GLStorageBuffer::Create();
         m_nextRayBuffer = GLStorageBuffer::Create();
-		if (!m_rayBuffer || !m_nextRayBuffer)
-			return false;
+		if (!m_rayBuffer || !m_nextRayBuffer) return false;
+
+        // Surface
+        m_surfaceBuffer = GLStorageBuffer::Create();
+        if (!m_surfaceBuffer) return false;
+
+        // Direct Lighting
+        m_directLightingBuffer = GLStorageBuffer::Create();
+        if (!m_directLightingBuffer) return false;
 
         // Hit Results
         m_hitBuffer = GLStorageBuffer::Create();
@@ -65,6 +72,7 @@ namespace bdt
 
     bool RTRayQueue::Resize(uint32 maxRayCount, uint32 pixelCount)
     {
+        m_ambientOcclusionReady = false;
         if (maxRayCount == 0 || pixelCount == 0)
             return false;
 
@@ -73,10 +81,17 @@ namespace bdt
         {
             const uint64 rayBufferSize = static_cast<uint64>(maxRayCount) * sizeof(GPURayWorkItem);
             const uint64 hitBufferSize = static_cast<uint64>(maxRayCount) * sizeof(GPUHit);
-            if (rayBufferSize > MaxValue<uint32> || hitBufferSize > MaxValue<uint32>) return false;
+            const uint64 surfaceBufferSize = static_cast<uint64>(maxRayCount) * sizeof(GPUSurfaceData);
+            if (rayBufferSize > MaxValue<uint32> || hitBufferSize > MaxValue<uint32> || surfaceBufferSize > MaxValue<uint32>)
+                return false;
+
             if (!m_rayBuffer->Resize(static_cast<uint32>(rayBufferSize))) return false;
             if (!m_nextRayBuffer->Resize(static_cast<uint32>(rayBufferSize))) return false;
             if (!m_hitBuffer->Resize(static_cast<uint32>(hitBufferSize))) return false;
+            if (!m_surfaceBuffer->Resize(static_cast<uint32>(surfaceBufferSize))) return false;
+            const uint64 directLightingBytes = static_cast<uint64>(maxRayCount) * sizeof(vec4);
+            if (directLightingBytes > MaxValue<uint32>) return false;
+            if (!m_directLightingBuffer->Resize(static_cast<uint32>(directLightingBytes))) return false;
             m_maxRayCount = maxRayCount;
         }
 
@@ -89,12 +104,16 @@ namespace bdt
             m_maxPixelCount = pixelCount;
         }
 
+        //[수정] Retain allocation capacity while tracking the current request.
+        m_rayLimit = maxRayCount;
+        m_pixelCount = pixelCount;
         return true;
     }
 
 
     void RTRayQueue::Clear()
     {
+        m_ambientOcclusionReady = false;
         const uint32 zero = 0;
 
         // Ray Counters
@@ -123,6 +142,10 @@ namespace bdt
         m_rayBuffer.reset();
         m_nextRayBuffer.reset();
         m_hitBuffer.reset();
+        m_surfaceBuffer.reset();
+        m_directLightingBuffer.reset();
+        m_ambientOcclusionBuffer.reset();
+        m_ambientOcclusionReady = false;
 
         m_rayCounterBuffer.reset();
         m_nextRayCounterBuffer.reset();
@@ -136,6 +159,8 @@ namespace bdt
 
         m_maxRayCount = 0;
         m_maxPixelCount = 0;
+        m_rayLimit = 0;
+        m_pixelCount = 0;
     }
 
     /*==================================//
@@ -143,6 +168,7 @@ namespace bdt
     //==================================*/
     void RTRayQueue::SwapQueues()
     {
+        m_ambientOcclusionReady = false;
         std::swap(m_rayBuffer, m_nextRayBuffer);
         std::swap(m_rayCounterBuffer, m_nextRayCounterBuffer);
     }
@@ -162,6 +188,48 @@ namespace bdt
         m_hitBuffer->Bind(static_cast<uint32>(ERTStorageBinding::Hit));
     }
 
+    void RTRayQueue::BindSurfaceBuffer() const
+    {
+        m_surfaceBuffer->Bind(static_cast<uint32>(ERTStorageBinding::Surface));
+    }
+
+    void RTRayQueue::BindDirectLightingBuffer() const
+    {
+        m_directLightingBuffer->Bind(static_cast<uint32>(ERTStorageBinding::DirectLighting));
+    }
+
+    bool RTRayQueue::PrepareAmbientOcclusionBuffer()
+    {
+        const uint64 bytes = static_cast<uint64>(m_rayLimit) * sizeof(float);
+        if (bytes == 0 || bytes > MaxValue<uint32>) return false;
+        if (!m_ambientOcclusionBuffer) m_ambientOcclusionBuffer = GLStorageBuffer::Create();
+        return m_ambientOcclusionBuffer && m_ambientOcclusionBuffer->Resize(static_cast<uint32>(bytes));
+    }
+
+    void RTRayQueue::BindAmbientOcclusionBuffer() const
+    {
+        m_ambientOcclusionBuffer->BindRange(static_cast<uint32>(ERTStorageBinding::AmbientOcclusion));
+    }
+
+    GLStorageBuffer* RTRayQueue::GetAmbientOcclusionBuffer() const
+    {
+        return m_ambientOcclusionBuffer.get();
+    }
+
+    bool RTRayQueue::IsAmbientOcclusionReady() const { return m_ambientOcclusionReady; }
+
+    bool RTRayQueue::SetAmbientOcclusionReady(bool ready)
+    {
+        if (ready && !m_ambientOcclusionBuffer) return false;
+        m_ambientOcclusionReady = ready;
+        return true;
+    }
+
+    GLStorageBuffer* RTRayQueue::GetDirectLightingBuffer() const
+    {
+        return m_directLightingBuffer.get();
+    }
+
     GLStorageBuffer* RTRayQueue::GetRayBuffer() const
     {
         return m_rayBuffer.get();
@@ -177,12 +245,18 @@ namespace bdt
         return m_hitBuffer.get();
     }
 
+    GLStorageBuffer* RTRayQueue::GetSurfaceBuffer() const
+    {
+        return m_surfaceBuffer.get();
+    }
+
     /*==================================//
     //           Ray Counters           //
     //==================================*/
     bool RTRayQueue::SetInitialRayCount(uint32 count)
     {
-        if (count > m_maxRayCount) return false;
+        m_ambientOcclusionReady = false;
+        if (count > m_rayLimit) return false;
         return m_rayCounterBuffer->Update(&count, sizeof(uint32));
     }
 
@@ -195,6 +269,16 @@ namespace bdt
     uint32 RTRayQueue::GetMaxRayCount() const
     {
         return m_maxRayCount;
+    }
+
+    uint32 RTRayQueue::GetRayLimit() const
+    {
+        return m_rayLimit;
+    }
+
+    uint32 RTRayQueue::GetPixelCount() const
+    {
+        return m_pixelCount;
     }
 
     void RTRayQueue::BindRayCounter() const
@@ -212,7 +296,7 @@ namespace bdt
     //==================================*/
     bool RTRayQueue::SetInitialDispatch(uint32 rayCount)
     {
-        if (rayCount > m_maxRayCount || m_dispatchCommandBuffer == 0) return false;
+        if (rayCount > m_rayLimit || m_dispatchCommandBuffer == 0) return false;
         const uint32 groupCount = static_cast<uint32>((static_cast<uint64>(rayCount) + 64 - 1) / 64);
         const GPUDispatchCommand command{ groupCount, 1, 1 };
         glNamedBufferSubData(m_dispatchCommandBuffer, 0, sizeof(GPUDispatchCommand), &command);

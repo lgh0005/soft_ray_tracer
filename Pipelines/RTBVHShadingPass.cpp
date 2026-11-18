@@ -48,18 +48,21 @@ namespace bdt
         rayBuffer->Bind(static_cast<uint32>(ERTStorageBinding::Ray));
         hitBuffer->Bind(static_cast<uint32>(ERTStorageBinding::Hit));
 
-        // 3. Geometry SSBO 바인딩
-        BDT_INSTANCE.BindStaticVertexBuffer();
-        BDT_INSTANCE.BindSkinnedOutputBuffer();
-        BDT_INSTANCE.BindIndexBuffer();
-        BDT_INSTANCE.BindDescriptorBuffer();
+        // 3. Prepared Surface (written by RTBVHSurfacePreparePass)
+        queue->BindSurfaceBuffer();
+        queue->BindDirectLightingBuffer();
+        queue->BindRayCounter();
 
-        // 4. Instance SSBO 바인딩
-        BDT_INSTANCE.BindInstanceBuffer();
-        BDT_INSTANCE.BindMaterialBuffer();
+        // Material and light evaluation are handled by Lighting Pass.
 
         // 5. Pixel Accumulation SSBO
         queue->BindAccumulationBuffer();
+
+        if (rtBus.GetRenderSettings().visualize)
+        {
+            if (!queue->IsAmbientOcclusionReady() || !queue->GetAmbientOcclusionBuffer()) return false;
+            queue->BindAmbientOcclusionBuffer();
+        }
 
         // 6. Compute Shader 실행
         shader->Bind();

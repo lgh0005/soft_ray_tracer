@@ -116,6 +116,7 @@ namespace bdt
         m_pointLightActors.clear();
         m_spotLightActors.clear();
         m_directionalLightActors.clear();
+        m_rectAreaLightActors.clear();
 
         m_mainCamera.reset();
     }

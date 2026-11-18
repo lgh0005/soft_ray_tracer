@@ -1,6 +1,4 @@
 #pragma once
-#include <Core/Defines.h>
-#include <Core/Types.h>
 #include <Rendering/IRenderPass.h>
 #include <Resources/ResourceHandle.h>
 

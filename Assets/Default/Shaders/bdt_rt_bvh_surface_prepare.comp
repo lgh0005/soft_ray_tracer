@@ -1,0 +1,463 @@
+
+#version 460 core
+
+layout(local_size_x = 64) in;
+
+const uint RAY_ACTIVE = 1u;
+const uint MESH_TYPE_SKINNED = 1u;
+
+// ------------------------------------------
+// Geometry Structures
+// ------------------------------------------
+
+struct GPUStaticVertex
+{
+    vec4 position;
+    vec4 normal;
+    vec4 uv;
+};
+
+struct GPUMeshDescriptor
+{
+    uint vertexOffset;
+    uint vertexCount;
+    uint triangleOffset;
+    uint triangleCount;
+
+    uint meshType;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPUInstance
+{
+    mat4 worldMatrix;
+    mat4 inverseWorldMatrix;
+
+    uint meshIndex;
+    uint materialIndex;
+    uint boneOffset;
+    uint boneCount;
+
+    uint skinnedVertexOffset;
+    uint blasBoundsOffset;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPURTMaterial
+{
+    vec4 albedoFactor;
+    vec4 emission;
+
+    float metallicFactor;
+    float roughnessFactor;
+    float ior;
+    float transmission;
+
+    uint albedoTextureIndex;
+    uint normalTextureIndex;
+    uint aoTextureIndex;
+    uint roughnessTextureIndex;
+
+    uint emissionTextureIndex;
+    uint reservedTextureIndex;
+    uint metallicTextureIndex;
+    uint specularTextureIndex;
+};
+
+// ------------------------------------------
+// Ray / Hit Structures
+// ------------------------------------------
+
+struct GPURay
+{
+    vec4 origin;
+    vec4 direction;
+};
+
+struct GPURayPayload
+{
+    vec4 throughput;
+
+    uint pixelIndex;
+    uint depth;
+    uint flags;
+    uint pad0;
+};
+
+struct GPURayWorkItem
+{
+    GPURay ray;
+    GPURayPayload payload;
+};
+
+struct GPUHit
+{
+    vec4 intersection;
+    uvec4 identifiers;
+};
+
+// ------------------------------------------
+// Surface Data
+// ------------------------------------------
+
+struct GPUSurfaceData
+{
+    vec4 worldPosition;
+    vec4 worldNormal;
+    vec4 albedo;
+    vec4 emission;
+    vec4 materialParams;
+
+    uint materialIndex;
+    uint instanceIndex;
+    uint valid;
+    uint pad0;
+};
+
+// ------------------------------------------
+// SSBO Bindings
+// ------------------------------------------
+
+layout(std430, binding = 0) readonly buffer RayBuffer
+{
+    GPURayWorkItem rays[];
+};
+
+layout(std430, binding = 1) readonly buffer HitBuffer
+{
+    GPUHit hits[];
+};
+
+layout(std430, binding = 3) readonly buffer VertexBuffer
+{
+    GPUStaticVertex vertices[];
+};
+
+layout(std430, binding = 4) readonly buffer IndexBuffer
+{
+    uint indices[];
+};
+
+layout(std430, binding = 5) readonly buffer MeshBuffer
+{
+    GPUMeshDescriptor meshes[];
+};
+
+layout(std430, binding = 6) readonly buffer InstanceBuffer
+{
+    GPUInstance instances[];
+};
+
+layout(std430, binding = 9) readonly buffer SkinnedOutputBuffer
+{
+    GPUStaticVertex outputVertices[];
+};
+
+layout(std430, binding = 11) readonly buffer RayCounterBuffer
+{
+    uint rayCount;
+};
+
+layout(std430, binding = 15) readonly buffer MaterialBuffer
+{
+    GPURTMaterial materials[];
+};
+
+layout(std430, binding = 21) writeonly buffer SurfaceBuffer
+{
+    GPUSurfaceData surfaces[];
+};
+
+// ------------------------------------------
+// Surface Preparation
+// ------------------------------------------
+layout(binding = 0) uniform sampler2D uMaterialTextures[16];
+
+vec4 SampleMaterialTexture(uint index, vec2 uv)
+{
+    switch (index)
+    {
+        case 0u: return textureLod(uMaterialTextures[0], uv, 0.0);
+        case 1u: return textureLod(uMaterialTextures[1], uv, 0.0);
+        case 2u: return textureLod(uMaterialTextures[2], uv, 0.0);
+        case 3u: return textureLod(uMaterialTextures[3], uv, 0.0);
+        case 4u: return textureLod(uMaterialTextures[4], uv, 0.0);
+        case 5u: return textureLod(uMaterialTextures[5], uv, 0.0);
+        case 6u: return textureLod(uMaterialTextures[6], uv, 0.0);
+        case 7u: return textureLod(uMaterialTextures[7], uv, 0.0);
+        case 8u: return textureLod(uMaterialTextures[8], uv, 0.0);
+        case 9u: return textureLod(uMaterialTextures[9], uv, 0.0);
+        case 10u: return textureLod(uMaterialTextures[10], uv, 0.0);
+        case 11u: return textureLod(uMaterialTextures[11], uv, 0.0);
+        case 12u: return textureLod(uMaterialTextures[12], uv, 0.0);
+        case 13u: return textureLod(uMaterialTextures[13], uv, 0.0);
+        case 14u: return textureLod(uMaterialTextures[14], uv, 0.0);
+        case 15u: return textureLod(uMaterialTextures[15], uv, 0.0);
+        default: return vec4(1.0);
+    }
+}
+
+void ApplySurfaceTextures(
+    GPUStaticVertex v0,
+    GPUStaticVertex v1,
+    GPUStaticVertex v2,
+    GPUHit hit,
+    GPUInstance instance,
+    inout GPURTMaterial material,
+    inout vec3 worldNormal,
+    out float materialAO)
+{
+    // ==========================================
+    // 1. Barycentric UV Interpolation
+    // ==========================================
+
+    float u = hit.intersection.y;
+    float v = hit.intersection.z;
+    float w = 1.0 - u - v;
+
+    vec2 uv =
+        w * v0.uv.xy +
+        u * v1.uv.xy +
+        v * v2.uv.xy;
+
+    // ==========================================
+    // 2. Material Texture Sampling
+    // ==========================================
+
+    material.albedoFactor *=
+        SampleMaterialTexture(
+            material.albedoTextureIndex, uv
+        );
+
+    material.roughnessFactor *=
+        SampleMaterialTexture(
+            material.roughnessTextureIndex, uv
+        ).r;
+
+    material.metallicFactor *=
+        SampleMaterialTexture(
+            material.metallicTextureIndex, uv
+        ).r;
+
+    material.emission.rgb *=
+        SampleMaterialTexture(
+            material.emissionTextureIndex, uv
+        ).rgb;
+
+    materialAO = clamp(
+        SampleMaterialTexture(
+            material.aoTextureIndex, uv
+        ).r,
+        0.0,
+        1.0
+    );
+
+    // ==========================================
+    // 3. Normal Mapping
+    // ==========================================
+
+    if (material.normalTextureIndex == 0xffffffffu)
+        return;
+
+    vec2 duv1 = v1.uv.xy - v0.uv.xy;
+    vec2 duv2 = v2.uv.xy - v0.uv.xy;
+
+    float determinant =
+        duv1.x * duv2.y -
+        duv1.y * duv2.x;
+
+    if (abs(determinant) <= 1e-8)
+        return;
+
+    // Local -> World Triangle Edges
+    mat3 worldMatrix = mat3(instance.worldMatrix);
+
+    vec3 e1 = worldMatrix *
+        (v1.position.xyz - v0.position.xyz);
+
+    vec3 e2 = worldMatrix *
+        (v2.position.xyz - v0.position.xyz);
+
+    // ==========================================
+    // 4. Tangent / Bitangent
+    // ==========================================
+
+    vec3 tangent =
+        (e1 * duv2.y - e2 * duv1.y) /
+        determinant;
+
+    vec3 bitangent =
+        (e2 * duv1.x - e1 * duv2.x) /
+        determinant;
+
+    // Gram-Schmidt Orthogonalization
+    tangent -= worldNormal *
+        dot(worldNormal, tangent);
+
+    if (dot(tangent, tangent) <= 1e-12)
+        return;
+
+    tangent = normalize(tangent);
+
+    float handedness =
+        dot(cross(worldNormal, tangent), bitangent)
+        < 0.0 ? -1.0 : 1.0;
+
+    bitangent =
+        handedness * cross(worldNormal, tangent);
+
+    // ==========================================
+    // 5. Sample Tangent-Space Normal
+    // ==========================================
+
+    vec2 xy =
+        SampleMaterialTexture(
+            material.normalTextureIndex, uv
+        ).rg * 2.0 - 1.0;
+
+    vec3 tangentNormal = vec3(
+        xy,
+        sqrt(max(1.0 - dot(xy, xy), 0.0))
+    );
+
+    // Tangent Space -> World Space
+    mat3 TBN = mat3(
+        tangent,
+        bitangent,
+        worldNormal
+    );
+
+    worldNormal = normalize(TBN * tangentNormal);
+}
+
+void main()
+{
+    uint rayIndex = gl_GlobalInvocationID.x;
+
+    if (rayIndex >= rayCount)
+        return;
+
+    // 이전 Bounce의 데이터가 남지 않도록
+    // 모든 처리 대상 슬롯을 먼저 무효화
+    GPUSurfaceData surface;
+
+    surface.worldPosition = vec4(0.0);
+    surface.worldNormal = vec4(0.0);
+    surface.albedo = vec4(0.0);
+    surface.emission = vec4(0.0);
+    surface.materialParams = vec4(0.0);
+
+    surface.materialIndex = 0u;
+    surface.instanceIndex = 0u;
+    surface.valid = 0u;
+    surface.pad0 = 0u;
+
+    surfaces[rayIndex] = surface;
+
+    GPURayWorkItem ray = rays[rayIndex];
+
+    if ((ray.payload.flags & RAY_ACTIVE) == 0u)
+        return;
+
+    GPUHit hit = hits[rayIndex];
+
+    if (hit.identifiers.z == 0u)
+        return;
+
+    uint instanceID = hit.identifiers.x;
+
+    GPUInstance instance = instances[instanceID];
+
+    GPUMeshDescriptor mesh =
+        meshes[instance.meshIndex];
+
+    GPURTMaterial material =
+        materials[instance.materialIndex];
+
+    // Closest Hit은 Global Triangle ID를 저장
+    uint indexBase = hit.identifiers.y * 3u;
+
+    uint i0 = indices[indexBase + 0u];
+    uint i1 = indices[indexBase + 1u];
+    uint i2 = indices[indexBase + 2u];
+
+    GPUStaticVertex v0;
+    GPUStaticVertex v1;
+    GPUStaticVertex v2;
+
+    if (mesh.meshType == MESH_TYPE_SKINNED)
+    {
+        uint offset = instance.skinnedVertexOffset;
+
+        v0 = outputVertices[offset + i0];
+        v1 = outputVertices[offset + i1];
+        v2 = outputVertices[offset + i2];
+    }
+    else
+    {
+        uint offset = mesh.vertexOffset;
+
+        v0 = vertices[offset + i0];
+        v1 = vertices[offset + i1];
+        v2 = vertices[offset + i2];
+    }
+
+    // Barycentric interpolation
+    float u = hit.intersection.y;
+    float v = hit.intersection.z;
+    float w = 1.0 - u - v;
+
+    vec3 localNormal = normalize(
+        w * v0.normal.xyz +
+        u * v1.normal.xyz +
+        v * v2.normal.xyz
+    );
+
+    // Local -> World
+    mat3 normalMatrix =
+        transpose(mat3(instance.inverseWorldMatrix));
+
+    vec3 worldNormal = normalize(
+        normalMatrix * localNormal
+    );
+
+    // Hit World Position
+    vec3 worldPosition =
+        ray.ray.origin.xyz +
+        ray.ray.direction.xyz * hit.intersection.x;
+
+    // ------------------------------------------
+    // Textures / Normal Mapping
+    // ------------------------------------------
+    float materialAO = 1.0;
+
+    ApplySurfaceTextures(
+        v0, v1, v2,
+        hit, instance,
+        material, worldNormal,
+        materialAO
+    );
+
+    // ------------------------------------------
+    // Surface Output
+    // ------------------------------------------
+    surface.worldPosition = vec4(worldPosition, 1.0);
+    surface.worldNormal = vec4(worldNormal, 0.0);
+    surface.albedo = material.albedoFactor;
+    surface.emission = material.emission;
+    surface.materialParams = vec4(
+        clamp(material.metallicFactor, 0.0, 1.0),
+        clamp(material.roughnessFactor, 0.0, 1.0),
+        materialAO,
+        clamp(material.transmission, 0.0, 1.0)
+    );
+
+    surface.materialIndex = instance.materialIndex;
+    surface.instanceIndex = instanceID;
+    surface.valid = 1u;
+
+    surfaces[rayIndex] = surface;
+}

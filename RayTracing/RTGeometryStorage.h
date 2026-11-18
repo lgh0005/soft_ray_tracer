@@ -34,9 +34,6 @@ namespace bdt
 		GLStorageBuffer* GetDescriptorBuffer() const;
 		uint32 GetGeometryCount() const;
 
-		//const MeshPtr& GetMesh(uint32 meshIndex) const;
-		//bool IsSkinnedMesh(uint32 meshIndex) const;
-
 	private:
 		bool RegisterStaticMesh(const MeshPtr& mesh, uint32& idx);
 		bool RegisterSkinnedMesh(const MeshPtr& mesh, uint32& idx);

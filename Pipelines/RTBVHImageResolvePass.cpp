@@ -22,8 +22,8 @@ namespace bdt
     {
         m_resolveShader = BDT_RESOURCE.LoadComputeShader
         (
-            "RT.BruteForce.ImageResolve",
-            { { GL_COMPUTE_SHADER, "Assets/Default/Shaders/bdt_rt_brute_force_image_resolve.comp" } }
+            "RT.BVH.ImageResolve.HDR",
+            { { GL_COMPUTE_SHADER, "Assets/Default/Shaders/bdt_rt_bvh_image_resolve.comp" } }
         );
 
         return true;
@@ -32,6 +32,7 @@ namespace bdt
     bool RTBVHImageResolvePass::Execute(IRenderBus& bus)
     {
         auto& rtBus = static_cast<RTBVHBus&>(bus);
+        rtBus.SetDenoisedHDRReady(false);
 
         const auto shader = m_resolveShader.Get();
         if (!shader || !shader->IsValid())
@@ -44,7 +45,7 @@ namespace bdt
 
         // 1. Resource 확인
         RTRayQueue* queue = rtBus.GetRayQueue();
-        auto* outputTexture = rtBus.GetOutputTexture();
+        auto* outputTexture = rtBus.GetHDRTexture();
         if (!queue || !outputTexture) return false;
 
         if (!queue->GetAccumulationBuffer())
@@ -62,7 +63,7 @@ namespace bdt
             GL_FALSE,
             0,
             GL_WRITE_ONLY,
-            GL_RGBA16F
+            GL_RGBA32F
         );
 
         // 4. Compute Shader
@@ -74,7 +75,12 @@ namespace bdt
         shader->Dispatch(groupX, groupY, 1);
 
         // 6. 이후 Graphics Pass에서 텍스처 읽기
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT);
+        glMemoryBarrier
+        (
+            GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | 
+            GL_TEXTURE_FETCH_BARRIER_BIT | 
+            GL_FRAMEBUFFER_BARRIER_BIT
+        );
 
         // 7. Cleanup
         glBindImageTexture
@@ -85,7 +91,7 @@ namespace bdt
             GL_FALSE,
             0,
             GL_WRITE_ONLY,
-            GL_RGBA16F
+            GL_RGBA32F
         );
 
         ComputeShader::Unbind();

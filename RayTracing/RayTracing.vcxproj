@@ -188,8 +188,12 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     <ClInclude Include="RTBVHStorage.h" />
     <ClInclude Include="RTBVHBuilder.h" />
     <ClInclude Include="RTBVHUpdateStorage.h" />
+    <ClInclude Include="RTBVHDenoiser.h" />
+    <ClInclude Include="RTRenderState.h" />
+    <ClInclude Include="RTEnvironment.h" />
     <ClInclude Include="RTData.h" />
     <ClInclude Include="RTGeometryStorage.h" />
+    <ClInclude Include="RTInformations.h" />
     <ClInclude Include="RTInstanceStorage.h" />
     <ClInclude Include="RTMaterialStorage.h" />
     <ClInclude Include="RTMaterial.h" />
@@ -214,6 +218,9 @@ for %%F in ("$(ProjectDir)*.h" "$(ProjectDir)*.inl") do (
     <ClCompile Include="RTBVHStorage.cpp" />
     <ClCompile Include="RTBVHBuilder.cpp" />
     <ClCompile Include="RTBVHUpdateStorage.cpp" />
+    <ClCompile Include="RTBVHDenoiser.cpp" />
+    <ClCompile Include="RTRenderState.cpp" />
+    <ClCompile Include="RTEnvironment.cpp" />
     <ClCompile Include="RTGeometryStorage.cpp" />
     <ClCompile Include="RTInstanceStorage.cpp" />
     <ClCompile Include="RTMaterialStorage.cpp" />

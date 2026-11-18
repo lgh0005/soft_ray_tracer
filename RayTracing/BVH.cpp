@@ -195,6 +195,9 @@ namespace bdt
                 }
 
                 case EBVHBuildMode::SAH:
+                case EBVHBuildMode::SAH8:
+                case EBVHBuildMode::SAH16:
+                case EBVHBuildMode::SAH32:
                 {
                     shouldSplit = SplitSAH
                     (
@@ -326,7 +329,11 @@ namespace bdt
         uint32& splitIndex
     )
     {
-        constexpr uint32 BIN_COUNT = 12;
+        constexpr uint32 MAX_BIN_COUNT = 32;
+        uint32 binCount = 12;
+        if (m_buildMode == EBVHBuildMode::SAH8) binCount = 8;
+        else if (m_buildMode == EBVHBuildMode::SAH16) binCount = 16;
+        else if (m_buildMode == EBVHBuildMode::SAH32) binCount = 32;
         constexpr float TRAVERSAL_COST = 1.0f;
         constexpr float INTERSECTION_COST = 1.0f;
         constexpr float EPSILON = 1e-8f;
@@ -371,7 +378,7 @@ namespace bdt
             if (centroidExtent[axis] <= EPSILON)
                 continue;
 
-            Bin bins[BIN_COUNT];
+            Bin bins[MAX_BIN_COUNT];
 
             // Primitive를 Bin에 분배
             for (uint32 i = begin; i < end; ++i)
@@ -379,7 +386,7 @@ namespace bdt
                 const GPUBVHNodeBounds& primitive = primitiveBounds[indices[i]];
                 const float centroid = (primitive.aabbMin[axis] + primitive.aabbMax[axis]) * 0.5f;
                 const float normalized = (centroid - centroidMin[axis]) / centroidExtent[axis];
-                const uint32 binIndex = std::min(static_cast<uint32>(normalized * BIN_COUNT), BIN_COUNT - 1u);
+                const uint32 binIndex = std::min(static_cast<uint32>(normalized * binCount), binCount - 1u);
 
                 Bin& bin = bins[binIndex];
                 bin.minBounds = glm::min(bin.minBounds, vec3(primitive.aabbMin));
@@ -388,10 +395,10 @@ namespace bdt
             }
 
             // 4. Prefix / Suffix 계산
-            Bin prefix[BIN_COUNT];
-            Bin suffix[BIN_COUNT];
+            Bin prefix[MAX_BIN_COUNT];
+            Bin suffix[MAX_BIN_COUNT];
             Bin accumulated{};
-            for (uint32 i = 0; i < BIN_COUNT; ++i)
+            for (uint32 i = 0; i < binCount; ++i)
             {
                 if (bins[i].count > 0)
                 {
@@ -404,7 +411,7 @@ namespace bdt
             }
 
             accumulated = Bin{};
-            for (uint32 i = BIN_COUNT; i-- > 0;)
+            for (uint32 i = binCount; i-- > 0;)
             {
                 if (bins[i].count > 0)
                 {
@@ -417,7 +424,7 @@ namespace bdt
             }
 
             // 5. 분할 후보의 SAH Cost 계산
-            for (uint32 split = 0; split < BIN_COUNT - 1; ++split)
+            for (uint32 split = 0; split < binCount - 1; ++split)
             {
                 const Bin& left = prefix[split];
                 const Bin& right = suffix[split + 1];
@@ -449,7 +456,7 @@ namespace bdt
         if (!found) return false;
 
         // 7. 가장 낮은 비용의 분할 위치 계산
-        const float splitPosition = centroidMin[bestAxis] + centroidExtent[bestAxis] * (static_cast<float>(bestSplit + 1) / BIN_COUNT);
+        const float splitPosition = centroidMin[bestAxis] + centroidExtent[bestAxis] * (static_cast<float>(bestSplit + 1) / binCount);
 
         // 8. 실제 Primitive 배열 분할
         auto middle = std::partition

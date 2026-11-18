@@ -15,8 +15,8 @@ namespace bdt
 		vec4 throughput   { 1.0f };   // rgb: 광선 경로의 기여도
 		uint32 pixelIndex { 0 };      // 최종 결과가 기록될 픽셀
 		uint32 depth	  { 0 };      // 현재 Bounce 깊이
-		uint32 flags	  { 0 };      // 향후 Ray 유형
-		uint32 pad0		  { 0 };
+		uint32 flags	  { 0 };      // bit 0: active, bit 1: environment MIS miss weight
+		uint32 pad0		  { 0 };      // bit 1일 때 floatBitsToUint(environment MIS weight)
 	};
 
 	struct alignas(BDT_STD430_BASE_ALIGNMENT) GPURayWorkItem
@@ -31,6 +31,14 @@ namespace bdt
 		uvec4 identifiers{ 0 }; // x: Instance ID, y: Global Triangle ID, z: Hit 여부, w: 미사용
 	};
 
+    struct alignas(BDT_STD430_BASE_ALIGNMENT) GPUDenoisingGuide
+    {
+        vec4 position;
+        vec4 normal;
+        vec4 previousPosition;
+        uvec4 identifiers;
+    };
+
 	struct GPUDispatchCommand
 	{
 		uint32 groupX{ 0 };
@@ -38,11 +46,25 @@ namespace bdt
 		uint32 groupZ{ 1 };
 	};
 
+	//[수정] BVH stores IEEE float bits; Brute Force retains fixed-point /4096. Both clear to zero.
 	struct alignas(BDT_STD430_BASE_ALIGNMENT) GPUAccumulatedPixel
 	{
 		uint32 r{ 0 };
 		uint32 g{ 0 };
 		uint32 b{ 0 };
 		uint32 pad0{ 0 };
+	};
+
+	struct alignas(BDT_STD430_BASE_ALIGNMENT) GPUSurfaceData
+	{
+		vec4 worldPosition;
+		vec4 worldNormal;
+		vec4 albedo;
+		vec4 emission;
+		vec4 materialParams; // metallic, roughness, ao 등
+		uint32 materialIndex;
+		uint32 instanceIndex;
+		uint32 valid;
+		uint32 pad0;
 	};
 }

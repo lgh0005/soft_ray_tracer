@@ -25,6 +25,7 @@ namespace bdt
 		float GetIntensity() const { return m_intensity; }
 		void SetIntensity(float intensity);
 
+		const Image2DPtr& GetSource() const { return m_source; }
 		const RenderTextureCubePtr& GetEnvironment() const { return environment; }
 		const RenderTextureCubePtr& GetIrradiance() const { return irradiance; }
 		const RenderTextureCubePtr& GetPrefiltered() const { return prefiltered; }

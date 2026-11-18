@@ -20,7 +20,11 @@ namespace bdt
 
     bool RTBVHOutputPass::Init()
     {
-        // [TEMP]
+        m_outputShader = BDT_RESOURCE.LoadComputeShader
+        (
+            "RT.BVH.OutputTransform",
+            {{GL_COMPUTE_SHADER, "Assets/Default/Shaders/bdt_rt_bvh_output_transform.comp"}}
+        );
         glCreateFramebuffers(1, &m_readFramebuffer);
         if (m_readFramebuffer == 0) return false;
         return true;
@@ -29,6 +33,11 @@ namespace bdt
     bool RTBVHOutputPass::Execute(IRenderBus& bus)
     {
         auto& rtBus = static_cast<RTBVHBus&>(bus);
+
+        const auto shader = m_outputShader.Get();
+        if (!shader || !shader->IsValid()) return false;
+        auto* hdrTexture = rtBus.GetFinalHDRTexture();
+        if (!hdrTexture || !hdrTexture->IsValid()) return false;
 
         // 1. Render Target 확인
         auto* outputTexture = rtBus.GetOutputTexture();
@@ -45,6 +54,19 @@ namespace bdt
 
         if (width == 0 || height == 0)
             return false;
+
+        if (hdrTexture->GetWidth() != width || hdrTexture->GetHeight() != height) return false;
+
+
+        //[수정] Display transform is separate from linear HDR resolve.
+        shader->Bind();
+        glBindImageTexture(0, hdrTexture->GetTextureID(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+        glBindImageTexture(1, outputTexture->GetTextureID(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
+        shader->Dispatch((width + 7u) / 8u, (height + 7u) / 8u, 1);
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT);
+        glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+        glBindImageTexture(1, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
+        ComputeShader::Unbind();
 
         // 2. Output Texture를 Read Framebuffer에 연결
         glNamedFramebufferTexture
@@ -86,6 +108,7 @@ namespace bdt
 
     void RTBVHOutputPass::Shutdown()
     {
+        m_outputShader = {};
         if (m_readFramebuffer != 0)
         {
             glDeleteFramebuffers(1, &m_readFramebuffer);

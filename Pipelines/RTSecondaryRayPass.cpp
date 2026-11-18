@@ -22,7 +22,7 @@ namespace bdt
 		m_secondaryRayShader = BDT_RESOURCE.LoadComputeShader
 		(
 			"RT.SecondaryRay",
-			{ { GL_COMPUTE_SHADER, "Assets/Default/Shaders/bdt_rt_brute_force_secondary_ray.comp" } }
+			{ { GL_COMPUTE_SHADER, "Assets/Default/Shaders/bdt_rt_secondary_ray.comp" } }
 		);
 
 		// 2. Prepare Indirect Dispatch

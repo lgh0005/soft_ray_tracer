@@ -23,7 +23,7 @@ namespace bdt
 		m_rayGenerationShader = BDT_RESOURCE.LoadComputeShader
 		(
 			"RT.BruteForce.RayGeneration",
-			{ { GL_COMPUTE_SHADER, "Assets/Default/Shaders/bdt_rt_brute_force_ray_generate.comp" } }
+			{ { GL_COMPUTE_SHADER, "Assets/Default/Shaders/bdt_rt_ray_generate.comp" } }
 		);
 
 		return true;

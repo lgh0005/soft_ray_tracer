@@ -1,0 +1,30 @@
+#version 460 core
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+struct GPUAccumPixel
+{
+    uint r;
+    uint g;
+    uint b;
+    uint pad0;
+};
+
+layout(std430, binding = 14) readonly buffer AccumulationBuffer
+{
+    GPUAccumPixel accumulation[];
+};
+
+layout(rgba32f, binding = 0) uniform writeonly image2D hdrImage;
+
+void main()
+{
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 resolution = imageSize(hdrImage);
+    if (any(greaterThanEqual(pixel, resolution))) return;
+
+    uint index = uint(pixel.y) * uint(resolution.x) + uint(pixel.x);
+    GPUAccumPixel value = accumulation[index];
+    vec3 radiance = vec3(uintBitsToFloat(value.r), uintBitsToFloat(value.g), uintBitsToFloat(value.b));
+    imageStore(hdrImage, pixel, vec4(radiance, 1.0));
+}

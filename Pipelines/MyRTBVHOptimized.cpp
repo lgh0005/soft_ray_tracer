@@ -8,19 +8,14 @@
 #include "RTBVHSecondaryRayPass.h"
 #include "RTBVHShadingPass.h"
 #include "RTBVHImageResolvePass.h"
+#include "RTBVHSurfacePreparePass.h"
+#include "RTBVHLightingPass.h"
 #include "RTBVHOutputPass.h"
+#include "RTBVHDenoisingPass.h"
+#include "RTBVHAOPass.h"
 
 namespace bdt
 {
-	namespace
-	{
-		// 1: 원본 해상도, 2: 가로·세로 절반, 4: 가로·세로 1/4
-		constexpr uint32 TraceResolutionDivisor = 1;
-		constexpr uint32 GetTraceDimension(uint32 dimension)
-		{
-			return dimension / TraceResolutionDivisor + (dimension % TraceResolutionDivisor != 0 ? 1u : 0u);
-		}
-	}
 
 	MyRTBVHOptimized::MyRTBVHOptimized() : IRenderPipeline("MyRTBVHOptimized") { }
 
@@ -38,6 +33,7 @@ namespace bdt
 
 	bool MyRTBVHOptimized::Init()
 	{
+		if (m_bus) return true;
 		m_bus = RTBVHBus::Create();
 		if (!m_bus) return false;
 
@@ -62,17 +58,35 @@ namespace bdt
 		m_imageResolvePass = RTBVHImageResolvePass::Create();
 		if (!m_imageResolvePass) return false;
 
+		m_surfacePreparePass = RTBVHSurfacePreparePass::Create();
+		if (!m_surfacePreparePass) return false;
+
+		m_lightingPass = RTBVHLightingPass::Create();
+		if (!m_lightingPass) return false;
+
+		m_denoisingPass = RTBVHDenoisingPass::Create();
+		if (!m_denoisingPass) return false;
+
+		m_aoPass = RTBVHAOPass::Create();
+		if (!m_aoPass) return false;
+
 		m_outputPass = RTBVHOutputPass::Create();
 		if (!m_outputPass) return false;
 
 		return true;
 	}
 
+    RTBVHBus* MyRTBVHOptimized::GetBus() const
+    {
+        return m_bus.get();
+    }
+
+
 	bool MyRTBVHOptimized::Resize(uint32 width, uint32 height)
 	{
 		if (width == 0 || height == 0) return false;
 		if (!m_bus) return false;
-		return m_bus->Resize(GetTraceDimension(width), GetTraceDimension(height));
+		return m_bus->Resize(width, height);
 	}
 
 	void MyRTBVHOptimized::Render(const RenderScene& scene, uint32 width, uint32 height)
@@ -82,9 +96,8 @@ namespace bdt
 			return;
 
 		// 1. 프레임 공통 자원 준비
-		const uint32 traceWidth = GetTraceDimension(width);
-		const uint32 traceHeight = GetTraceDimension(height);
-		if (!m_bus->BeginFrame(scene, traceWidth, traceHeight)) return;
+		if (!m_bus->BeginFrame(scene, width, height)) return;
+		const auto& settings = m_bus->GetRenderSettings();
 		RTRayQueue* queue = m_bus->GetRayQueue();
 		if (!queue) return;
 
@@ -98,14 +111,23 @@ namespace bdt
 		if (!m_rayGenPass->Execute(*m_bus)) return;
 
 		// 5. Bounce Loop
-		for (uint32 bounce = 0; bounce <= MaxBounces; ++bounce)
+		for (uint32 bounce = 0; bounce <= settings.maxBounces; ++bounce)
 		{
 			// BVH Traversal
 			if (!m_closestHitPass->Execute(*m_bus)) return;
 
+			// Surface Prepare
+			if (!m_surfacePreparePass->Execute(*m_bus)) return;
+
+			// AO is a diagnostic input; MC environment lighting already traces visibility.
+			if (settings.visualize && !m_aoPass->Execute(*m_bus)) return;
+
+			// Direct Lighting
+			if (!settings.visualize && !m_lightingPass->Execute(*m_bus)) return;
+
 			// Shading
 			if (!m_rtShadingPass->Execute(*m_bus)) return;
-			if (bounce == MaxBounces) break;
+			if (settings.visualize || bounce == settings.maxBounces) break;
 
 			// Secondary Ray Generation
 			if (!m_secondRayPass->Execute(*m_bus)) return;
@@ -117,6 +139,8 @@ namespace bdt
 		// 6. Image Resolve
 		if (!m_imageResolvePass->Execute(*m_bus)) return;
 
+		if (!settings.visualize && !m_denoisingPass->Execute(*m_bus)) return;
+
 		// 7. Output
 		if (!m_outputPass->Execute(*m_bus)) return;
 	}
@@ -124,6 +148,10 @@ namespace bdt
 	void MyRTBVHOptimized::Shutdown()
 	{
 		m_outputPass.reset();
+		m_denoisingPass.reset();
+		m_aoPass.reset();
+		m_lightingPass.reset();
+		m_surfacePreparePass.reset();
 		m_imageResolvePass.reset();
 		m_rtShadingPass.reset();
 		m_secondRayPass.reset();

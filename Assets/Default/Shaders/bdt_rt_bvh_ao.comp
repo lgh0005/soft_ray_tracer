@@ -1,0 +1,411 @@
+#version 460 core
+
+layout(std140, binding = 2) uniform RTRenderSettings
+{
+    uint uMaxBounces;
+    uint uAreaSampleCount;
+    uint uTraceResolutionDivisor;
+    uint uDenoiseEnabled;
+    uint uTemporal;
+    uint uSpatialIterations;
+    uint uMaxAOSampleCount;
+    uint uAOEnabled;
+    uint uVisualizeAO;
+    uint uAOSampleCount;
+    float uAORadius;
+    uint _settingsPad0;
+    uint uEnvironmentEnabled;
+    uint uIBLEnabled;
+    uint uIBLSampleCount;
+    uint uIBLSamplingMode;
+    float uIBLIntensity;
+    float uEnvironmentRotation;
+    uint _iblPad0;
+    uint _iblPad1;
+};
+
+layout(local_size_x = 64) in;
+const uint RAY_ACTIVE = 1u;
+
+struct GPUStaticVertex
+{
+    vec4 position;
+    vec4 normal;
+    vec4 uv;
+};
+
+struct GPUMeshDescriptor
+{
+    uint vertexOffset;
+    uint vertexCount;
+    uint triangleOffset;
+    uint triangleCount;
+    uint meshType;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPUInstance
+{
+    mat4 worldMatrix;
+    mat4 inverseWorldMatrix;
+
+    uint meshIndex;
+    uint materialIndex;
+    uint boneOffset;
+    uint boneCount;
+
+    uint skinnedVertexOffset;
+    uint blasBoundsOffset;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPUBVHNodeTopology
+{
+    uvec4 treeTopology;
+    uvec4 primitiveRange;
+};
+
+struct GPUBVHNodeBounds
+{
+    vec4 aabbMin;
+    vec4 aabbMax;
+};
+
+struct GPUBVHDescriptor
+{
+    uvec4 ranges;
+    uvec4 metadata;
+};
+
+
+struct GPUSurfaceData
+{
+    vec4 worldPosition;
+    vec4 worldNormal;
+    vec4 albedo;
+    vec4 emission;
+    vec4 materialParams; // x=metallic, y=roughness, z=material AO, w=transmission
+    uint materialIndex;
+    uint instanceIndex;
+    uint valid;
+    uint pad0;
+};
+
+struct GPURay
+{
+    vec4 origin;
+    vec4 direction;
+};
+
+struct GPURayPayload
+{
+    vec4 throughput;
+
+    uint pixelIndex;
+    uint depth;
+    uint flags;
+    uint pad0;
+};
+
+struct GPURayWorkItem
+{
+    GPURay ray;
+    GPURayPayload payload;
+};
+
+
+layout(std430, binding = 3) readonly buffer VertexBuffer
+{
+    GPUStaticVertex vertices[];
+};
+
+layout(std430, binding = 4) readonly buffer IndexBuffer
+{
+    uint indices[];
+};
+
+layout(std430, binding = 5) readonly buffer MeshBuffer
+{
+    GPUMeshDescriptor meshes[];
+};
+
+layout(std430, binding = 6) readonly buffer InstanceBuffer
+{
+    GPUInstance instances[];
+};
+
+layout(std430, binding = 9) readonly buffer SkinnedOutputBuffer
+{
+    GPUStaticVertex outputVertices[];
+};
+
+layout(std430, binding = 16) readonly buffer BVHTopologyBuffer
+{
+    GPUBVHNodeTopology bvhTopology[];
+};
+
+layout(std430, binding = 17) readonly buffer BVHBoundsBuffer
+{
+    GPUBVHNodeBounds bvhBounds[];
+};
+
+// Instance별 Skinned BLAS Bounds
+layout(std430, binding = 20) readonly buffer BVHSkinnedBoundsBuffer
+{
+    GPUBVHNodeBounds skinnedBVHBounds[];
+};
+
+layout(std430, binding = 18) readonly buffer BVHPrimitiveBuffer
+{
+    uint bvhPrimitiveIndices[];
+};
+
+layout(std430, binding = 19) readonly buffer BVHDescriptorBuffer
+{
+    GPUBVHDescriptor bvhDescriptors[];
+};
+
+layout(std140, binding = 1) uniform RTFrameData
+{
+    uint uRayCount;
+    uint uInstanceCount;
+    uint uTLASDescriptorIndex;
+    uint _pad1;
+};
+
+
+uniform uint uFrameIndex;
+
+const uint INVALID_INDEX = 0xffffffffu;
+const uint MESH_TYPE_SKINNED = 1u;
+const uint LIGHT_RECT_AREA = 3u;
+
+const float SHADOW_BIAS = 0.0001;
+const float SHADOW_T_MIN = 0.000001;
+const float MAX_RAY_DISTANCE = 3.402823466e+38;
+
+const float PI = 3.14159265359;
+const float EPSILON = 0.0001;
+const uint LIGHT_DIRECTIONAL = 0u;
+const uint LIGHT_POINT = 1u;
+const uint LIGHT_SPOT = 2u;
+
+struct ShadowRayData
+{
+    vec3 origin;
+    vec3 inverseDirection;
+    bvec3 parallel;
+};
+
+ShadowRayData PrepareShadowRay(vec3 origin, vec3 direction)
+{
+    ShadowRayData ray;
+    ray.origin = origin;
+    ray.parallel = equal(direction, vec3(0.0));
+    // Reuse the reciprocal for every node in this TLAS/BLAS traversal.
+    ray.inverseDirection = 1.0 / mix(direction, vec3(1.0), ray.parallel);
+    return ray;
+}
+
+bool IntersectShadowAABB(ShadowRayData ray, GPUBVHNodeBounds bounds, float tMin, float tMax)
+{
+    bvec3 outside = bvec3(ray.origin.x < bounds.aabbMin.x || ray.origin.x > bounds.aabbMax.x,
+        ray.origin.y < bounds.aabbMin.y || ray.origin.y > bounds.aabbMax.y,
+        ray.origin.z < bounds.aabbMin.z || ray.origin.z > bounds.aabbMax.z);
+    if (any(bvec3(ray.parallel.x && outside.x, ray.parallel.y && outside.y, ray.parallel.z && outside.z))) return false;
+    vec3 t0 = (bounds.aabbMin.xyz - ray.origin) * ray.inverseDirection;
+    vec3 t1 = (bounds.aabbMax.xyz - ray.origin) * ray.inverseDirection;
+    vec3 nearT = mix(min(t0, t1), vec3(-MAX_RAY_DISTANCE), ray.parallel);
+    vec3 farT = mix(max(t0, t1), vec3(MAX_RAY_DISTANCE), ray.parallel);
+    return max(tMin, max(nearT.x, max(nearT.y, nearT.z))) <= min(tMax, min(farT.x, min(farT.y, farT.z)));
+}
+
+bool IntersectShadowTriangle(vec3 origin, vec3 direction, vec3 v0, vec3 v1, vec3 v2, float tMin, float tMax)
+{
+    vec3 edge1 = v1 - v0;
+    vec3 edge2 = v2 - v0;
+    vec3 p = cross(direction, edge2);
+    float determinant = dot(edge1, p);
+    if (abs(determinant) < 1e-6) return false;
+    float inverseDeterminant = 1.0 / determinant;
+    vec3 offset = origin - v0;
+    float u = dot(offset, p) * inverseDeterminant;
+    if (u < 0.0 || u > 1.0) return false;
+    vec3 q = cross(offset, edge1);
+    float v = dot(direction, q) * inverseDeterminant;
+    if (v < 0.0 || u + v > 1.0) return false;
+    float t = dot(edge2, q) * inverseDeterminant;
+    return t > tMin && t < tMax;
+}
+
+uint GetShadowNodeEnd(GPUBVHDescriptor descriptor)
+{
+    // Validate the descriptor once rather than repeating its range arithmetic at every node.
+    uint available = uint(bvhTopology.length());
+    if (descriptor.ranges.x > available || descriptor.ranges.y > available - descriptor.ranges.x) return 0u;
+    return descriptor.ranges.x + descriptor.ranges.y;
+}
+
+uint NextShadowNode(uint current, uint next)
+{
+    // Preorder children and escape links must move forward; reject malformed cycles.
+    return next > current ? next : INVALID_INDEX;
+}
+
+GPUBVHNodeBounds GetShadowBLASBounds(GPUInstance instance, GPUMeshDescriptor mesh, GPUBVHDescriptor blas, uint nodeIndex)
+{
+    if (mesh.meshType == MESH_TYPE_SKINNED && instance.blasBoundsOffset != INVALID_INDEX)
+        return skinnedBVHBounds[instance.blasBoundsOffset + nodeIndex - blas.ranges.x];
+    return bvhBounds[nodeIndex];
+}
+
+bool TraceShadowBLAS(uint instanceID, vec3 origin, vec3 direction, float tMin, float tMax)
+{
+    GPUInstance instance = instances[instanceID];
+    if (instance.meshIndex >= uint(meshes.length()) || instance.meshIndex >= uint(bvhDescriptors.length())) return false;
+    GPUMeshDescriptor mesh = meshes[instance.meshIndex];
+    GPUBVHDescriptor blas = bvhDescriptors[instance.meshIndex];
+    vec3 localOrigin = (instance.inverseWorldMatrix * vec4(origin, 1.0)).xyz;
+    // Do not normalize: preserve world-space tMin/tMax under nonuniform scale.
+    vec3 localDirection = (instance.inverseWorldMatrix * vec4(direction, 0.0)).xyz;
+    ShadowRayData localRay = PrepareShadowRay(localOrigin, localDirection);
+    uint nodeIndex = blas.metadata.x;
+    uint nodeEnd = GetShadowNodeEnd(blas);
+    if (nodeIndex < blas.ranges.x) return false;
+    while (nodeIndex < nodeEnd)
+    {
+        GPUBVHNodeTopology node = bvhTopology[nodeIndex];
+        GPUBVHNodeBounds bounds = GetShadowBLASBounds(instance, mesh, blas, nodeIndex);
+        if (!IntersectShadowAABB(localRay, bounds, tMin, tMax))
+        {
+            nodeIndex = NextShadowNode(nodeIndex, node.primitiveRange.w);
+            continue;
+        }
+        if (node.treeTopology.w == 0u)
+        {
+            nodeIndex = NextShadowNode(nodeIndex, node.treeTopology.x);
+            continue;
+        }
+        for (uint i = 0u; i < node.primitiveRange.y; ++i)
+        {
+            uint triangle = bvhPrimitiveIndices[node.primitiveRange.x + i];
+            if (triangle >= mesh.triangleCount) continue;
+            uint firstIndex = (mesh.triangleOffset + triangle) * 3u;
+            uvec3 triangleIndices = uvec3(indices[firstIndex], indices[firstIndex + 1u], indices[firstIndex + 2u]);
+            vec3 v0, v1, v2;
+            if (mesh.meshType == MESH_TYPE_SKINNED)
+            {
+                uint offset = instance.skinnedVertexOffset;
+                v0 = outputVertices[offset + triangleIndices.x].position.xyz;
+                v1 = outputVertices[offset + triangleIndices.y].position.xyz;
+                v2 = outputVertices[offset + triangleIndices.z].position.xyz;
+            }
+            else
+            {
+                uint offset = mesh.vertexOffset;
+                v0 = vertices[offset + triangleIndices.x].position.xyz;
+                v1 = vertices[offset + triangleIndices.y].position.xyz;
+                v2 = vertices[offset + triangleIndices.z].position.xyz;
+            }
+            if (IntersectShadowTriangle(localOrigin, localDirection, v0, v1, v2, tMin, tMax)) return true;
+        }
+        nodeIndex = NextShadowNode(nodeIndex, node.primitiveRange.w);
+    }
+    return false;
+}
+
+bool TraceAny(vec3 origin, vec3 direction, float tMin, float tMax)
+{
+    if (tMax <= tMin || uTLASDescriptorIndex >= uint(bvhDescriptors.length())) return false;
+    GPUBVHDescriptor tlas = bvhDescriptors[uTLASDescriptorIndex];
+    ShadowRayData worldRay = PrepareShadowRay(origin, direction);
+    uint nodeIndex = tlas.metadata.x;
+    uint nodeEnd = GetShadowNodeEnd(tlas);
+    if (nodeIndex < tlas.ranges.x) return false;
+    while (nodeIndex < nodeEnd)
+    {
+        GPUBVHNodeTopology node = bvhTopology[nodeIndex];
+        if (!IntersectShadowAABB(worldRay, bvhBounds[nodeIndex], tMin, tMax))
+        {
+            nodeIndex = NextShadowNode(nodeIndex, node.primitiveRange.w);
+            continue;
+        }
+        if (node.treeTopology.w == 0u)
+        {
+            nodeIndex = NextShadowNode(nodeIndex, node.treeTopology.x);
+            continue;
+        }
+        for (uint i = 0u; i < node.primitiveRange.y; ++i)
+        {
+            uint instanceID = bvhPrimitiveIndices[node.primitiveRange.x + i];
+            if (instanceID >= uInstanceCount) continue;
+            if (TraceShadowBLAS(instanceID, origin, direction, tMin, tMax)) return true;
+        }
+        nodeIndex = NextShadowNode(nodeIndex, node.primitiveRange.w);
+    }
+    return false;
+}
+
+uint HashSample(uint value)
+{
+    value ^= value >> 16u;
+    value *= 0x7feb352du;
+    value ^= value >> 15u;
+    value *= 0x846ca68bu;
+    return value ^ (value >> 16u);
+}
+
+float NextSample(inout uint state)
+{
+    state = HashSample(state + 0x9e3779b9u);
+    return float(state >> 8u) * (1.0 / 16777216.0);
+}
+
+
+layout(std430, binding = 0) readonly buffer RayBuffer { GPURayWorkItem rays[]; };
+layout(std430, binding = 11) readonly buffer RayCounterBuffer { uint rayCount; };
+layout(std430, binding = 21) readonly buffer SurfaceBuffer { GPUSurfaceData surfaces[]; };
+layout(std430, binding = 23) writeonly buffer AmbientOcclusionBuffer { float ambientOcclusion[]; };
+
+vec3 SampleCosineHemisphere(vec3 N, inout uint state)
+{
+    float u = NextSample(state);
+    float phi = 2.0 * PI * NextSample(state);
+    float r = sqrt(u);
+    vec3 axis = vec3(0.0, 0.0, 1.0);
+    if (abs(N.z) >= 0.999) axis = vec3(0.0, 1.0, 0.0);
+    vec3 tangent = normalize(cross(axis, N));
+    vec3 bitangent = cross(N, tangent);
+    return normalize(tangent * (r * cos(phi)) + bitangent * (r * sin(phi)) + N * sqrt(max(0.0, 1.0 - u)));
+}
+
+void main()
+{
+    uint rayIndex = gl_GlobalInvocationID.x;
+    if (rayIndex >= rayCount) return;
+    // Each current-wave entry is initialized, including misses and inactive rays.
+    ambientOcclusion[rayIndex] = 1.0;
+    GPURayWorkItem ray = rays[rayIndex];
+    GPUSurfaceData surface = surfaces[rayIndex];
+    if ((ray.payload.flags & RAY_ACTIVE) == 0u || surface.valid == 0u) return;
+    float lengthSquared = dot(surface.worldNormal.xyz, surface.worldNormal.xyz);
+    if (lengthSquared <= 1e-12 || isnan(lengthSquared) || isinf(lengthSquared)) return;
+    vec3 N = surface.worldNormal.xyz * inversesqrt(lengthSquared);
+    if (dot(N, -ray.ray.direction.xyz) < 0.0) N = -N;
+    vec3 origin = surface.worldPosition.xyz + N * SHADOW_BIAS;
+    uint state = HashSample(ray.payload.pixelIndex ^ HashSample(ray.payload.depth + 17u) ^
+        HashSample(uFrameIndex + 31u) ^ HashSample(floatBitsToUint(ray.ray.direction.x) ^ 1u) ^
+        HashSample(floatBitsToUint(ray.ray.direction.y) ^ 2u) ^ HashSample(floatBitsToUint(ray.ray.direction.z) ^ 3u));
+    uint sampleCount = clamp(uAOSampleCount, 1u, min(uMaxAOSampleCount, 64u));
+    uint occluded = 0u;
+    for (uint sampleIndex = 0u; sampleIndex < sampleCount; ++sampleIndex)
+    {
+        vec3 direction = SampleCosineHemisphere(N, state);
+        if (TraceAny(origin, direction, SHADOW_T_MIN, uAORadius)) ++occluded;
+    }
+    // Cosine PDF cancels cos(theta)/PI: do not multiply by NdotL again.
+    ambientOcclusion[rayIndex] = 1.0 - float(occluded) / float(sampleCount);
+}

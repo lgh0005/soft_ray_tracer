@@ -1,6 +1,4 @@
 #pragma once
-#include <Core/Defines.h>
-#include <Core/Types.h>
 #include <Rendering/IRenderPass.h>
 #include <Resources/ResourceHandle.h>
 
@@ -26,5 +24,7 @@ namespace bdt
 
         ResourceHandle<ComputeShader> m_secondaryRayShader;
         ResourceHandle<ComputeShader> m_prepareDispatchShader;
+        uint32 m_shaderProgram{ 0 };
+        int32 m_frameIndexLocation{ -1 };
     };
 }

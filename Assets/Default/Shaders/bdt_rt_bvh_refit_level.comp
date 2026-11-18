@@ -1,0 +1,78 @@
+#version 460 core
+
+//[수정] Phase 5: one depth per dispatch; the caller orders depths bottom-up.
+
+layout(local_size_x = 64, local_size_y = 1) in;
+
+struct GPUInstance
+{
+    mat4 worldMatrix;
+    mat4 inverseWorldMatrix;
+    uint meshIndex;
+    uint materialIndex;
+    uint boneOffset;
+    uint boneCount;
+    uint skinnedVertexOffset;
+    uint blasBoundsOffset;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPUBVHNodeTopology
+{
+    uvec4 treeTopology;
+    uvec4 primitiveRange;
+};
+
+struct GPUBVHNodeBounds
+{
+    vec4 aabbMin;
+    vec4 aabbMax;
+};
+
+struct GPUBVHDescriptor
+{
+    uvec4 ranges;
+    uvec4 metadata;
+};
+
+// Hit is not consumed during Refit. ClosestHit restores binding 1 afterwards.
+layout(std430, binding = 1) readonly buffer RefitLevelTasks { uvec2 levelTasks[]; };
+layout(std430, binding = 6) readonly buffer InstanceBuffer { GPUInstance instances[]; };
+layout(std430, binding = 16) readonly buffer BVHTopologyBuffer { GPUBVHNodeTopology bvhTopology[]; };
+layout(std430, binding = 19) readonly buffer BVHDescriptorBuffer { GPUBVHDescriptor bvhDescriptors[]; };
+layout(std430, binding = 20) buffer BVHSkinnedBoundsBuffer { GPUBVHNodeBounds skinnedBVHBounds[]; };
+
+layout(std140, binding = 1) uniform RTFrameData
+{
+    uint uRayCount;
+    uint uInstanceCount;
+    uint uTLASDescriptorIndex;
+    uint _pad1;
+};
+
+layout(location = 0) uniform uint uFirstTask;
+layout(location = 1) uniform uint uTaskCount;
+
+void main()
+{
+    uint taskIndex = gl_GlobalInvocationID.x;
+    uint instanceID = gl_GlobalInvocationID.y;
+    if (taskIndex >= uTaskCount || instanceID >= uInstanceCount) return;
+
+    uvec2 task = levelTasks[uFirstTask + taskIndex];
+    GPUInstance instance = instances[instanceID];
+    if (instance.meshIndex != task.x || instance.boneCount == 0u || instance.blasBoundsOffset == 0xffffffffu) return;
+
+    GPUBVHDescriptor blas = bvhDescriptors[task.x];
+    GPUBVHNodeTopology node = bvhTopology[task.y];
+    uint boundsOffset = instance.blasBoundsOffset;
+    uint nodeOffset = blas.ranges.x;
+    GPUBVHNodeBounds leftBounds = skinnedBVHBounds[boundsOffset + node.treeTopology.x - nodeOffset];
+    GPUBVHNodeBounds rightBounds = skinnedBVHBounds[boundsOffset + node.treeTopology.y - nodeOffset];
+
+    GPUBVHNodeBounds result;
+    result.aabbMin = vec4(min(leftBounds.aabbMin.xyz, rightBounds.aabbMin.xyz), 0.0);
+    result.aabbMax = vec4(max(leftBounds.aabbMax.xyz, rightBounds.aabbMax.xyz), 0.0);
+    skinnedBVHBounds[boundsOffset + task.y - nodeOffset] = result;
+}

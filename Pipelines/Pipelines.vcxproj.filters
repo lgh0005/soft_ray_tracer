@@ -139,6 +139,21 @@
     <ClCompile Include="RTImageResolvePass.cpp">
       <Filter>소스 파일\Pipelines\MyRTBruteForce\ComputePasses</Filter>
     </ClCompile>
+    <ClCompile Include="RTBVHPostProcessingPass.cpp">
+      <Filter>소스 파일\Pipelines\MyRTBVHOptimized\RenderPasses</Filter>
+    </ClCompile>
+    <ClCompile Include="RTBVHAOPass.cpp">
+      <Filter>소스 파일\Pipelines\MyRTBVHOptimized\ComputePasses</Filter>
+    </ClCompile>
+    <ClCompile Include="RTBVHDenoisingPass.cpp">
+      <Filter>소스 파일\Pipelines\MyRTBVHOptimized\ComputePasses</Filter>
+    </ClCompile>
+    <ClCompile Include="RTBVHLightingPass.cpp">
+      <Filter>소스 파일\Pipelines\MyRTBVHOptimized\ComputePasses</Filter>
+    </ClCompile>
+    <ClCompile Include="RTBVHSurfacePreparePass.cpp">
+      <Filter>소스 파일\Pipelines\MyRTBVHOptimized\ComputePasses</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -224,6 +239,21 @@
     </ClInclude>
     <ClInclude Include="RTImageResolvePass.h">
       <Filter>소스 파일\Pipelines\MyRTBruteForce\ComputePasses</Filter>
+    </ClInclude>
+    <ClInclude Include="RTBVHPostProcessingPass.h">
+      <Filter>소스 파일\Pipelines\MyRTBVHOptimized\RenderPasses</Filter>
+    </ClInclude>
+    <ClInclude Include="RTBVHAOPass.h">
+      <Filter>소스 파일\Pipelines\MyRTBVHOptimized\ComputePasses</Filter>
+    </ClInclude>
+    <ClInclude Include="RTBVHDenoisingPass.h">
+      <Filter>소스 파일\Pipelines\MyRTBVHOptimized\ComputePasses</Filter>
+    </ClInclude>
+    <ClInclude Include="RTBVHLightingPass.h">
+      <Filter>소스 파일\Pipelines\MyRTBVHOptimized\ComputePasses</Filter>
+    </ClInclude>
+    <ClInclude Include="RTBVHSurfacePreparePass.h">
+      <Filter>소스 파일\Pipelines\MyRTBVHOptimized\ComputePasses</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

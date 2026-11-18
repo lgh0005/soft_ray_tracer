@@ -5,6 +5,7 @@
 #include "PointLightActor.h"
 #include "SpotLightActor.h"
 #include "DirectionalLightActor.h"
+#include "RectAreaLightActor.h"
 
 namespace bdt
 {
@@ -55,5 +56,11 @@ namespace bdt
     DirectionalLightActor* World::AddDirectionalLightActor(TArgs&&... args)
     {
         return RegisterActor(m_directionalLightActors, m_actors, std::forward<TArgs>(args)...);
+    }
+
+    template<typename... TArgs>
+    RectAreaLightActor* World::AddRectAreaLightActor(TArgs&&... args)
+    {
+        return RegisterActor(m_rectAreaLightActors, m_actors, std::forward<TArgs>(args)...);
     }
 }

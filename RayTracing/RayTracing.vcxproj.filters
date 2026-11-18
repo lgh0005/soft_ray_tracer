@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="소스 파일">
@@ -97,6 +97,18 @@
     <ClInclude Include="RTBVHUpdateStorage.h">
       <Filter>소스 파일\Storages</Filter>
     </ClInclude>
+    <ClInclude Include="RTBVHDenoiser.h">
+      <Filter>소스 파일\Storages</Filter>
+    </ClInclude>
+    <ClInclude Include="RTRenderState.h">
+      <Filter>소스 파일\Storages</Filter>
+    </ClInclude>
+    <ClInclude Include="RTEnvironment.h">
+      <Filter>소스 파일\Storages</Filter>
+    </ClInclude>
+    <ClInclude Include="RTInformations.h">
+      <Filter>소스 파일\Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -145,6 +157,15 @@
       <Filter>소스 파일\Storages</Filter>
     </ClCompile>
     <ClCompile Include="RTBVHUpdateStorage.cpp">
+      <Filter>소스 파일\Storages</Filter>
+    </ClCompile>
+    <ClCompile Include="RTBVHDenoiser.cpp">
+      <Filter>소스 파일\Storages</Filter>
+    </ClCompile>
+    <ClCompile Include="RTRenderState.cpp">
+      <Filter>소스 파일\Storages</Filter>
+    </ClCompile>
+    <ClCompile Include="RTEnvironment.cpp">
       <Filter>소스 파일\Storages</Filter>
     </ClCompile>
   </ItemGroup>

@@ -1,0 +1,703 @@
+#version 460 core
+
+layout(std140, binding = 2) uniform RTRenderSettings
+{
+    uint uMaxBounces;
+    uint uAreaSampleCount;
+    uint uTraceResolutionDivisor;
+    uint uDenoiseEnabled;
+    uint uTemporal;
+    uint uSpatialIterations;
+    uint uMaxAOSampleCount;
+    uint uAOEnabled;
+    uint uVisualizeAO;
+    uint uAOSampleCount;
+    float uAORadius;
+    uint _settingsPad0;
+    uint uEnvironmentEnabled;
+    uint uIBLEnabled;
+    uint uIBLSampleCount;
+    uint uIBLSamplingMode;
+    float uIBLIntensity;
+    float uEnvironmentRotation;
+    uint _iblPad0;
+    uint _iblPad1;
+};
+
+struct GPUStaticVertex
+{
+    vec4 position;
+    vec4 normal;
+    vec4 uv;
+};
+
+struct GPUMeshDescriptor
+{
+    uint vertexOffset;
+    uint vertexCount;
+    uint triangleOffset;
+    uint triangleCount;
+    uint meshType;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPUInstance
+{
+    mat4 worldMatrix;
+    mat4 inverseWorldMatrix;
+
+    uint meshIndex;
+    uint materialIndex;
+    uint boneOffset;
+    uint boneCount;
+
+    uint skinnedVertexOffset;
+    uint blasBoundsOffset;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPURTMaterial
+{
+    vec4 albedoFactor;
+    vec4 emission;
+    float metallicFactor;
+    float roughnessFactor;
+    float ior;
+    float transmission;
+    uint albedoTextureIndex;
+    uint normalTextureIndex;
+    uint aoTextureIndex;
+    uint roughnessTextureIndex;
+    uint emissionTextureIndex;
+    uint reservedTextureIndex;
+    uint metallicTextureIndex;
+    uint specularTextureIndex;
+};
+
+layout(local_size_x = 64) in;
+
+// ========================================
+// Ray Data
+// ========================================
+
+struct GPURay
+{
+    vec4 origin;
+    vec4 direction;
+};
+
+struct GPURayPayload
+{
+    vec4 throughput;
+
+    uint pixelIndex;
+    uint depth;
+    uint flags;
+    uint pad0;
+};
+
+struct GPURayWorkItem
+{
+    GPURay ray;
+    GPURayPayload payload;
+};
+
+struct GPUHit
+{
+    vec4 intersection;
+    uvec4 identifiers;
+};
+
+// ========================================
+// Geometry Data
+// ========================================
+
+const uint MESH_TYPE_SKINNED = 1u; // ERTMeshType::Skinned
+
+layout(std430, binding = 15) readonly buffer MaterialBuffer
+{
+    GPURTMaterial materials[];
+};
+
+// ========================================
+// SSBO
+// ========================================
+
+// Current Ray Queue
+layout(std430, binding = 0) readonly buffer RayBuffer
+{
+    GPURayWorkItem rays[];
+};
+
+// ClosestHit Results
+layout(std430, binding = 1) readonly buffer HitBuffer
+{
+    GPUHit hits[];
+};
+
+// Static Geometry
+layout(std430, binding = 3) readonly buffer VertexBuffer
+{
+    GPUStaticVertex vertices[];
+};
+
+// Triangle Indices
+layout(std430, binding = 4) readonly buffer IndexBuffer
+{
+    uint indices[];
+};
+
+// Mesh Descriptors
+layout(std430, binding = 5) readonly buffer MeshBuffer
+{
+    GPUMeshDescriptor meshes[];
+};
+
+// Instances
+layout(std430, binding = 6) readonly buffer InstanceBuffer
+{
+    GPUInstance instances[];
+};
+
+// GPU Skinned Vertices
+layout(std430, binding = 9) readonly buffer SkinnedOutputBuffer
+{
+    GPUStaticVertex skinnedVertices[];
+};
+
+// Next Ray Queue
+layout(std430, binding = 10) writeonly buffer NextRayBuffer
+{
+    GPURayWorkItem nextRays[];
+};
+
+// Current Ray Count
+layout(std430, binding = 11) readonly buffer RayCounterBuffer
+{
+    uint rayCount;
+};
+
+// Next Ray Count
+layout(std430, binding = 12) buffer NextRayCounterBuffer
+{
+    uint nextRayCount;
+};
+
+// ========================================
+// Constants
+// ========================================
+
+const uint RAY_ACTIVE = 1u;
+const uint RAY_ENVIRONMENT_MIS_WEIGHT = 2u;
+const float AIR_IOR = 1.0;
+const float RAY_EPSILON = 0.001;
+const float MIN_THROUGHPUT = 0.0001;
+
+// ========================================
+// Ray Queue Compaction
+// ========================================
+
+const uint ROULETTE_START_DEPTH = 2u;
+const float MIN_PATH_SURVIVAL = 0.1;
+layout(location=0) uniform uint uFrameIndex;
+
+void AppendRay(GPURayWorkItem ray)
+{
+    if ((ray.payload.flags & RAY_ACTIVE) == 0u)
+        return;
+
+    float weight = max
+    (
+        max
+        (
+            ray.payload.throughput.r,
+            ray.payload.throughput.g
+        ),
+        ray.payload.throughput.b
+    );
+
+    if (weight < MIN_THROUGHPUT)
+        return;
+
+    // [수정] Preserve first-bounce/delta rays; reweight surviving later GGX paths by 1 / survival.
+    if ((ray.payload.flags & RAY_ENVIRONMENT_MIS_WEIGHT) != 0u && ray.payload.depth >= ROULETTE_START_DEPTH)
+    {
+        float survival = clamp(weight, MIN_PATH_SURVIVAL, 1.0);
+        uint random = ray.payload.pixelIndex ^ (ray.payload.depth * 0x9e3779b9u) ^ (uFrameIndex * 0x85ebca6bu);
+        random ^= random >> 16u; random *= 0x7feb352du; random ^= random >> 15u;
+        random *= 0x846ca68bu; random ^= random >> 16u;
+        if (float(random >> 8u) * (1.0 / 16777216.0) >= survival) return;
+        ray.payload.throughput.rgb /= survival;
+    }
+    // Reserve one slot atomically
+    uint index = atomicAdd(nextRayCount, 1u);
+
+    // Write the generated ray
+    nextRays[index] = ray;
+}
+
+// ========================================
+// Surface Normal
+// ========================================
+
+vec3 GetWorldNormal(
+    GPUHit hit,
+    GPUInstance instance)
+{
+    GPUMeshDescriptor mesh =
+        meshes[instance.meshIndex];
+
+    // Global Triangle ID
+    uint base = hit.identifiers.y * 3u;
+
+    uint i0 = indices[base + 0u];
+    uint i1 = indices[base + 1u];
+    uint i2 = indices[base + 2u];
+
+    vec3 n0;
+    vec3 n1;
+    vec3 n2;
+
+    if (mesh.meshType == MESH_TYPE_SKINNED)
+    {
+        uint offset = instance.skinnedVertexOffset;
+
+        n0 = skinnedVertices[offset + i0].normal.xyz;
+        n1 = skinnedVertices[offset + i1].normal.xyz;
+        n2 = skinnedVertices[offset + i2].normal.xyz;
+    }
+    else
+    {
+        uint offset = mesh.vertexOffset;
+
+        n0 = vertices[offset + i0].normal.xyz;
+        n1 = vertices[offset + i1].normal.xyz;
+        n2 = vertices[offset + i2].normal.xyz;
+    }
+
+    // Barycentric Coordinates
+    float u = hit.intersection.y;
+    float v = hit.intersection.z;
+    float w = 1.0 - u - v;
+
+    vec3 localNormal = normalize
+    (
+        n0 * w +
+        n1 * u +
+        n2 * v
+    );
+
+    mat3 normalMatrix =
+        transpose(mat3(instance.inverseWorldMatrix));
+
+    return normalize(normalMatrix * localNormal);
+}
+
+// ========================================
+// Fresnel
+// ========================================
+
+float FresnelSchlick(
+    float cosTheta,
+    float etaI,
+    float etaT)
+{
+    float r0 = (etaI - etaT) / (etaI + etaT);
+    r0 *= r0;
+
+    float x = 1.0 - cosTheta;
+
+    return r0 + (1.0 - r0) * pow(x, 5.0);
+}
+
+// ========================================
+// Main
+// ========================================
+
+// Sampler indices need constant-index branches because rays access different materials.
+layout(binding = 0) uniform sampler2D uMaterialTextures[16];
+vec4 SampleMaterialTexture(uint index, vec2 uv)
+{
+    switch (index)
+    {
+        case 0u: return textureLod(uMaterialTextures[0], uv, 0.0);
+        case 1u: return textureLod(uMaterialTextures[1], uv, 0.0);
+        case 2u: return textureLod(uMaterialTextures[2], uv, 0.0);
+        case 3u: return textureLod(uMaterialTextures[3], uv, 0.0);
+        case 4u: return textureLod(uMaterialTextures[4], uv, 0.0);
+        case 5u: return textureLod(uMaterialTextures[5], uv, 0.0);
+        case 6u: return textureLod(uMaterialTextures[6], uv, 0.0);
+        case 7u: return textureLod(uMaterialTextures[7], uv, 0.0);
+        case 8u: return textureLod(uMaterialTextures[8], uv, 0.0);
+        case 9u: return textureLod(uMaterialTextures[9], uv, 0.0);
+        case 10u: return textureLod(uMaterialTextures[10], uv, 0.0);
+        case 11u: return textureLod(uMaterialTextures[11], uv, 0.0);
+        case 12u: return textureLod(uMaterialTextures[12], uv, 0.0);
+        case 13u: return textureLod(uMaterialTextures[13], uv, 0.0);
+        case 14u: return textureLod(uMaterialTextures[14], uv, 0.0);
+        case 15u: return textureLod(uMaterialTextures[15], uv, 0.0);
+        default: return vec4(1.0);
+    }
+}
+
+float ApplyRTTextures(GPUHit hit, GPUInstance instance, inout GPURTMaterial material, inout vec3 worldNormal)
+{
+    GPUMeshDescriptor mesh = meshes[instance.meshIndex];
+    uint indexBase = hit.identifiers.y * 3u;
+    uint i0 = indices[indexBase];
+    uint i1 = indices[indexBase + 1u];
+    uint i2 = indices[indexBase + 2u];
+    GPUStaticVertex v0, v1, v2;
+    if (mesh.meshType == MESH_TYPE_SKINNED)
+    {
+        uint offset = instance.skinnedVertexOffset;
+        v0 = skinnedVertices[offset + i0];
+        v1 = skinnedVertices[offset + i1];
+        v2 = skinnedVertices[offset + i2];
+    }
+    else
+    {
+        uint offset = mesh.vertexOffset;
+        v0 = vertices[offset + i0];
+        v1 = vertices[offset + i1];
+        v2 = vertices[offset + i2];
+    }
+    float u = hit.intersection.y;
+    float v = hit.intersection.z;
+    vec2 uv = (1.0 - u - v) * v0.uv.xy + u * v1.uv.xy + v * v2.uv.xy;
+    material.albedoFactor *= SampleMaterialTexture(material.albedoTextureIndex, uv);
+    material.roughnessFactor *= SampleMaterialTexture(material.roughnessTextureIndex, uv).r;
+    material.metallicFactor *= SampleMaterialTexture(material.metallicTextureIndex, uv).r;
+    material.emission.rgb *= SampleMaterialTexture(material.emissionTextureIndex, uv).rgb;
+    float ao = SampleMaterialTexture(material.aoTextureIndex, uv).r;
+
+    if (material.normalTextureIndex != 0xffffffffu)
+    {
+        vec2 duv1 = v1.uv.xy - v0.uv.xy;
+        vec2 duv2 = v2.uv.xy - v0.uv.xy;
+        float determinant = duv1.x * duv2.y - duv1.y * duv2.x;
+        if (abs(determinant) > 1e-8)
+        {
+            vec3 e1 = mat3(instance.worldMatrix) * (v1.position.xyz - v0.position.xyz);
+            vec3 e2 = mat3(instance.worldMatrix) * (v2.position.xyz - v0.position.xyz);
+            vec3 tangent = (e1 * duv2.y - e2 * duv1.y) / determinant;
+            vec3 bitangent = (e2 * duv1.x - e1 * duv2.x) / determinant;
+            tangent -= worldNormal * dot(worldNormal, tangent);
+            if (dot(tangent, tangent) > 1e-12)
+            {
+                tangent = normalize(tangent);
+                float handedness = dot(cross(worldNormal, tangent), bitangent) < 0.0 ? -1.0 : 1.0;
+                bitangent = handedness * cross(worldNormal, tangent);
+                // BC5 and RGB normal maps share XY; reconstruct Z as in the raster path.
+                vec2 xy = SampleMaterialTexture(material.normalTextureIndex, uv).rg * 2.0 - 1.0;
+                vec3 normal = vec3(xy, sqrt(max(1.0 - dot(xy, xy), 0.0)));
+                worldNormal = normalize(mat3(tangent, bitangent, worldNormal) * normal);
+            }
+        }
+    }
+    return clamp(ao, 0.0, 1.0);
+}
+
+
+layout(binding=16) uniform sampler2D rtEnvironmentImage;
+layout(binding=17) uniform sampler2D rtEnvironmentDistribution;
+layout(std140,binding=3) uniform RTEnvironmentData
+{
+    vec4 environmentTransform; // cos(yaw), sin(yaw), intensity, ready
+    uvec4 environmentDistributionSize;
+};
+const float IBL_PI=3.14159265358979323846;
+bool IBLEnvironmentReady(){return uEnvironmentEnabled!=0u&&environmentTransform.w>0.0;}
+vec3 IBLToEnvironment(vec3 d){float c=environmentTransform.x,s=environmentTransform.y;return vec3(c*d.x-s*d.z,d.y,s*d.x+c*d.z);}
+vec3 IBLToWorld(vec3 d){float c=environmentTransform.x,s=environmentTransform.y;return vec3(c*d.x+s*d.z,d.y,-s*d.x+c*d.z);}
+vec2 IBLEnvironmentUV(vec3 direction)
+{
+    vec3 d=normalize(IBLToEnvironment(direction));
+    float longitude=dot(d.xz,d.xz)>1e-12?atan(d.z,d.x):0.0;
+    return vec2(longitude/(2.0*IBL_PI)+0.5,asin(clamp(d.y,-1.0,1.0))/IBL_PI+0.5);
+}
+vec3 IBLEnvironmentRadiance(vec3 direction)
+{
+    vec3 value=textureLod(rtEnvironmentImage,IBLEnvironmentUV(direction),0.0).rgb;
+    if(any(isnan(value))||any(isinf(value)))return vec3(0.0);
+    vec3 radiance=max(value,vec3(0.0))*environmentTransform.z;
+    if(any(isnan(radiance))||any(isinf(radiance)))return vec3(0.0);
+    return radiance;
+}
+uint IBLHash(uint x){x^=x>>16u;x*=0x7feb352du;x^=x>>15u;x*=0x846ca68bu;return x^(x>>16u);}
+float IBLRandom(inout uint state){state=IBLHash(state+0x9e3779b9u);return float(state>>8u)*(1.0/16777216.0);}
+vec3 IBLBasis(vec3 N,vec3 local)
+{
+    vec3 axis=abs(N.z)<0.999?vec3(0,0,1):vec3(0,1,0);
+    vec3 T=normalize(cross(axis,N));return normalize(T*local.x+cross(N,T)*local.y+N*local.z);
+}
+vec3 IBLCosineDirection(vec3 N,inout uint state)
+{
+    float u=IBLRandom(state),phi=2.0*IBL_PI*IBLRandom(state),r=sqrt(u);
+    return IBLBasis(N,vec3(r*cos(phi),r*sin(phi),sqrt(max(0.0,1.0-u))));
+}
+float IBLTexelSolidAngle(int y,ivec2 size)
+{
+    float lo=IBL_PI*(float(y)/float(size.y)-0.5),hi=IBL_PI*(float(y+1)/float(size.y)-0.5);
+    return (2.0*IBL_PI/float(size.x))*(sin(hi)-sin(lo));
+}
+float IBLEnvironmentPdf(vec3 direction)
+{
+    ivec2 size=ivec2(environmentDistributionSize.xy);
+    float total=texelFetch(rtEnvironmentDistribution,ivec2(size.y-1,size.y),0).r;
+    if(!(total>0.0)||isinf(total)||isnan(total))return 1.0/(4.0*IBL_PI);
+    ivec2 pixel=clamp(ivec2(IBLEnvironmentUV(direction)*vec2(size)),ivec2(0),size-1);
+    float mass=texelFetch(rtEnvironmentDistribution,pixel,0).g;
+    return 0.99*mass/IBLTexelSolidAngle(pixel.y,size)+0.01/(4.0*IBL_PI);
+}
+vec3 IBLSampleEnvironment(inout uint state)
+{
+    ivec2 size=ivec2(environmentDistributionSize.xy);
+    float total=texelFetch(rtEnvironmentDistribution,ivec2(size.y-1,size.y),0).r;
+    float choice=IBLRandom(state);
+    if(!(total>0.0)||isinf(total)||isnan(total)||choice<0.01)
+    {
+        float y=2.0*IBLRandom(state)-1.0,phi=2.0*IBL_PI*IBLRandom(state);
+        float r=sqrt(max(0.0,1.0-y*y));return IBLToWorld(vec3(r*cos(phi),y,r*sin(phi)));
+    }
+    float target=IBLRandom(state)*total;
+    int lo=0,hi=size.y-1;
+    while(lo<hi){int mid=(lo+hi)/2;if(texelFetch(rtEnvironmentDistribution,ivec2(mid,size.y),0).r<=target)lo=mid+1;else hi=mid;}
+    int y=lo;float rowTotal=texelFetch(rtEnvironmentDistribution,ivec2(size.x-1,y),0).r;
+    target=IBLRandom(state)*rowTotal;lo=0;hi=size.x-1;
+    while(lo<hi){int mid=(lo+hi)/2;if(texelFetch(rtEnvironmentDistribution,ivec2(mid,y),0).r<=target)lo=mid+1;else hi=mid;}
+    float u=(float(lo)+IBLRandom(state))/float(size.x);
+    float latLo=IBL_PI*(float(y)/float(size.y)-0.5),latHi=IBL_PI*(float(y+1)/float(size.y)-0.5);
+    float sy=mix(sin(latLo),sin(latHi),IBLRandom(state));float rr=sqrt(max(0.0,1.0-sy*sy));
+    float phi=(u-0.5)*2.0*IBL_PI;return IBLToWorld(vec3(rr*cos(phi),sy,rr*sin(phi)));
+}
+
+// Environment shares the existing GGX/Schlick-GGX reflection model.
+bool IBLHasRoughContinuation(GPURTMaterial m){return m.roughnessFactor>=0.045&&m.transmission<=0.0;}
+vec3 IBLF0(GPURTMaterial m)
+{
+    float ior=max(m.ior,0.001),f=(ior-1.0)/(ior+1.0);
+    return mix(vec3(f*f),clamp(m.albedoFactor.rgb,vec3(0),vec3(1)),clamp(m.metallicFactor,0.0,1.0));
+}
+vec3 IBLFresnel(float cosine,vec3 f0){return f0+(1.0-f0)*pow(1.0-clamp(cosine,0.0,1.0),5.0);}
+float IBLDistribution(vec3 N,vec3 H,float roughness)
+{
+    float a=clamp(roughness,0.045,1.0);a*=a;float a2=a*a;
+    float nh=clamp(dot(N,H),0.0,1.0),den=dot(cross(N,H),cross(N,H))+a2*nh*nh;
+    return a2/(IBL_PI*den*den);
+}
+float IBLGeometry(float cosine,float roughness)
+{
+    float rr=clamp(roughness,0.045,1.0)+1.0,k=rr*rr/8.0;
+    return cosine/max(cosine*(1.0-k)+k,0.0001);
+}
+void IBLComponents(GPURTMaterial m,vec3 N,vec3 V,vec3 L,out vec3 diffuse,out vec3 specular)
+{
+    diffuse=vec3(0);specular=vec3(0);
+    float nl=max(dot(N,L),0.0),nv=max(dot(N,V),0.0);
+    if(nl<=0.0||nv<=0.0||dot(V+L,V+L)<1e-12)return;
+    vec3 H=normalize(V+L),F=IBLFresnel(max(dot(H,V),0.0),IBLF0(m));
+    if(m.ior==1.0&&m.metallicFactor<=0.0)F=vec3(0);
+    diffuse=(1.0-F)*(1.0-clamp(m.metallicFactor,0.0,1.0))*(1.0-clamp(m.transmission,0.0,1.0))*clamp(m.albedoFactor.rgb,vec3(0),vec3(1))*(nl/IBL_PI);
+    if(IBLHasRoughContinuation(m))specular=IBLDistribution(N,H,m.roughnessFactor)*IBLGeometry(nv,m.roughnessFactor)*IBLGeometry(nl,m.roughnessFactor)*F/max(4.0*nv*nl,0.0001)*nl;
+}
+vec3 IBLBRDFCos(GPURTMaterial m,vec3 N,vec3 V,vec3 L)
+{
+    vec3 diffuse,specular;IBLComponents(m,N,V,L,diffuse,specular);return diffuse+specular;
+}
+float IBLSpecularProbability(GPURTMaterial m){return 0.5+0.5*clamp(m.metallicFactor,0.0,1.0);}
+float IBLBSDFPdf(GPURTMaterial m,vec3 N,vec3 V,vec3 L)
+{
+    float nl=max(dot(N,L),0.0);if(nl<=0.0||dot(V+L,V+L)<1e-12)return 0.0;
+    vec3 H=normalize(V+L);float vh=dot(V,H);if(vh<=0.0)return 0.0;
+    float specular=IBLDistribution(N,H,m.roughnessFactor)*max(dot(N,H),0.0)/(4.0*vh);
+    return specular;
+}
+vec3 IBLSampleBSDF(GPURTMaterial m,vec3 N,vec3 V,inout uint state)
+{
+    float u=IBLRandom(state),phi=2.0*IBL_PI*IBLRandom(state);
+    float a=clamp(m.roughnessFactor,0.045,1.0);a*=a;float a2=a*a;
+    float ct=sqrt((1.0-u)/(1.0+(a2-1.0)*u)),st=sqrt(max(0.0,1.0-ct*ct));
+    vec3 H=IBLBasis(N,vec3(st*cos(phi),st*sin(phi),ct));return reflect(-V,H);
+}
+float IBLProposalPdf(vec3 N,vec3 L){return uIBLSamplingMode==0u?max(dot(N,L),0.0)/IBL_PI:IBLEnvironmentPdf(L);}
+
+
+struct GPUSurfaceData
+{
+    vec4 worldPosition;
+    vec4 worldNormal;
+    vec4 albedo;
+    vec4 emission;
+    vec4 materialParams;
+
+    uint materialIndex;
+    uint instanceIndex;
+    uint valid;
+    uint pad0;
+};
+layout(std430,binding=21) readonly buffer PreparedSurfaceBuffer{GPUSurfaceData preparedSurfaces[];};
+void main()
+{
+    uint rayID = gl_GlobalInvocationID.x;
+
+    // Skip unused invocations
+    if (rayID >= rayCount)
+        return;
+
+    GPURayWorkItem parentRay = rays[rayID];
+
+    if ((parentRay.payload.flags & RAY_ACTIVE) == 0u)
+        return;
+
+    GPUHit hit = hits[rayID];
+
+    // Miss: no secondary rays
+    if (hit.identifiers.z == 0u)
+        return;
+
+    // ====================================
+    // Instance / Material
+    // ====================================
+
+    GPUInstance instance =
+        instances[hit.identifiers.x];
+
+    GPURTMaterial material = materials[instance.materialIndex];
+
+    float transmission = clamp(material.transmission, 0.0, 1.0);
+
+    // ====================================
+    // Surface Information
+    // ====================================
+
+    vec3 incident = normalize(
+        parentRay.ray.direction.xyz
+    );
+
+    vec3 worldNormal;
+    if(IBLEnvironmentReady())
+    {
+        GPUSurfaceData surface=preparedSurfaces[rayID];
+        if(surface.valid==0u)return;
+        worldNormal=normalize(surface.worldNormal.xyz);
+        material.albedoFactor=surface.albedo;
+        material.roughnessFactor=surface.materialParams.y;
+        material.metallicFactor=surface.materialParams.x;
+        material.transmission=surface.materialParams.w;
+    }
+    else
+    {
+        worldNormal=GetWorldNormal(hit,instance);
+        ApplyRTTextures(hit,instance,material,worldNormal);
+    }
+    float metallic = clamp(material.metallicFactor, 0.0, 1.0);
+
+    // hit.intersection.x = ray parameter t
+    vec3 hitPosition =
+        parentRay.ray.origin.xyz +
+        parentRay.ray.direction.xyz *
+        hit.intersection.x;
+
+    // Determine entry / exit
+    bool entering = dot(incident, worldNormal) < 0.0;
+
+    // Normal facing the incident ray
+    vec3 normal = entering ? worldNormal : -worldNormal;
+
+    // Non-delta continuation participates in environment MIS. Off/no-environment retains the original path.
+    if(IBLEnvironmentReady()&&uIBLEnabled!=0u&&uIBLSampleCount>0u&&IBLHasRoughContinuation(material))
+    {
+        uint state=IBLHash(parentRay.payload.pixelIndex^IBLHash(parentRay.payload.depth+983u)^IBLHash(uFrameIndex+53u)^IBLHash(floatBitsToUint(incident.x))^IBLHash(floatBitsToUint(incident.y)));
+        vec3 V=-incident,L=IBLSampleBSDF(material,normal,V,state);
+        float pb=IBLBSDFPdf(material,normal,V,L);if(!(pb>0.0))return;
+        vec3 diffuse,specular;IBLComponents(material,normal,V,L,diffuse,specular);
+        vec3 throughput=specular/pb;
+        if(any(isnan(throughput))||any(isinf(throughput)))return;
+        GPURayWorkItem continuation=parentRay;
+        continuation.ray.origin=vec4(hitPosition+normal*0.0001,1.0);
+        continuation.ray.direction=vec4(normalize(L),0.0);
+        continuation.payload.depth=parentRay.payload.depth+1u;
+        continuation.payload.flags=RAY_ACTIVE | RAY_ENVIRONMENT_MIS_WEIGHT;
+        float pe=IBLProposalPdf(normal,L);
+        float weight=uIBLSamplingMode==2u?pb/(pb+float(clamp(uIBLSampleCount,1u,8u))*pe):0.0;
+        continuation.payload.pad0=floatBitsToUint(weight);
+        continuation.payload.throughput.rgb*=throughput;
+        AppendRay(continuation);
+        return;
+    }
+
+    // ====================================
+    // Reflection
+    // ====================================
+    vec3 reflectionDirection = normalize(reflect(incident, normal));
+
+    // Air/material boundary only. Nested media need a medium stack.
+    float ior = max(material.ior, 0.001);
+    float etaI = entering ? AIR_IOR : ior;
+    float etaT = entering ? ior : AIR_IOR;
+    float cosTheta = clamp(-dot(incident, normal), 0.0, 1.0);
+    float eta = etaI / etaT;
+    float sin2ThetaT = eta * eta * (1.0 - cosTheta * cosTheta);
+    float fresnel = sin2ThetaT >= 1.0 ? 1.0 : FresnelSchlick(cosTheta, etaI, etaT);
+
+    // Equal indices have no optical boundary, including at grazing angles.
+    if (etaI == etaT) fresnel = 0.0;
+    vec3 baseColor = clamp(material.albedoFactor.rgb, vec3(0.0), vec3(1.0));
+    vec3 metalFresnel = baseColor + (1.0 - baseColor) * pow(1.0 - cosTheta, 5.0);
+    vec3 reflectionWeight = mix(vec3(fresnel), metalFresnel, metallic);
+
+    GPURayWorkItem reflectionRay = parentRay;
+    reflectionRay.ray.origin = vec4(hitPosition + normal * RAY_EPSILON, 1.0);
+    reflectionRay.ray.direction = vec4(reflectionDirection, 0.0);
+    reflectionRay.payload.depth = parentRay.payload.depth + 1u;
+    reflectionRay.payload.flags = RAY_ACTIVE;
+
+    // Delta reflection and the legacy environment-disabled path use ideal reflection.
+    reflectionRay.payload.throughput.rgb *= reflectionWeight;
+
+    AppendRay(reflectionRay);
+
+    // ====================================
+    // Refraction
+    // ====================================
+    if (transmission <= 0.0 || metallic >= 1.0)
+        return;
+
+    // No refraction during total internal reflection
+    if (fresnel >= 1.0)
+        return;
+
+    vec3 refractionDirection = refract
+    (
+        incident,
+        normal,
+        etaI / etaT
+    );
+
+    if (dot(refractionDirection, refractionDirection) <= 0.0)
+        return;
+
+    GPURayWorkItem refractionRay = parentRay;
+
+    refractionRay.ray.origin = vec4
+    (
+        hitPosition - normal * RAY_EPSILON,
+        1.0
+    );
+
+    refractionRay.ray.direction = vec4
+    (
+        normalize(refractionDirection),
+        0.0
+    );
+
+    refractionRay.payload.depth = parentRay.payload.depth + 1u;
+    refractionRay.payload.flags = RAY_ACTIVE;
+    refractionRay.payload.throughput.rgb *= (1.0 - metallic) * transmission * (1.0 - fresnel);
+
+    AppendRay(refractionRay);
+}

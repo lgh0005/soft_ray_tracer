@@ -1,0 +1,50 @@
+#version 460 core
+
+layout(std140, binding = 2) uniform RTRenderSettings
+{
+    uint uMaxBounces;
+    uint uAreaSampleCount;
+    uint uTraceResolutionDivisor;
+    uint uDenoiseEnabled;
+    uint uTemporal;
+    uint uSpatialIterations;
+    uint uMaxAOSampleCount;
+    uint uAOEnabled;
+    uint uVisualizeAO;
+    uint uAOSampleCount;
+    float uAORadius;
+    uint _settingsPad0;
+    uint uEnvironmentEnabled;
+    uint uIBLEnabled;
+    uint uIBLSampleCount;
+    uint uIBLSamplingMode;
+    float uIBLIntensity;
+    float uEnvironmentRotation;
+    uint _iblPad0;
+    uint _iblPad1;
+};
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(rgba32f, binding = 0) uniform readonly image2D hdrImage;
+layout(rgba16f, binding = 1) uniform writeonly image2D outputImage;
+
+
+void main()
+{
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(pixel, imageSize(outputImage)))) return;
+
+    vec3 radiance = imageLoad(hdrImage, pixel).rgb;
+    if (uVisualizeAO != 0u)
+    {
+        imageStore(outputImage, pixel, vec4(clamp(radiance, vec3(0.0), vec3(1.0)), 1.0));
+        return;
+    }
+    // [TEMP] Preserve the existing display transform until post processing is connected.
+    const float exposure = 1.0;
+    const float gamma = 2.2;
+    vec3 displayColor = vec3(1.0) - exp(-max(radiance, vec3(0.0)) * exposure);
+    displayColor = pow(displayColor, vec3(1.0 / gamma));
+    imageStore(outputImage, pixel, vec4(displayColor, 1.0));
+}

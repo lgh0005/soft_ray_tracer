@@ -21,11 +21,10 @@ namespace bdt
 	{
 		m_secondaryRayShader = BDT_RESOURCE.LoadComputeShader
 		(
-			"RT.SecondaryRay",
-			{ { GL_COMPUTE_SHADER, "Assets/Default/Shaders/bdt_rt_brute_force_secondary_ray.comp" } }
+			"RT.BVH.SecondaryRay",
+			{ { GL_COMPUTE_SHADER, "Assets/Default/Shaders/bdt_rt_bvh_secondary_ray.comp" } }
 		);
 
-		// 2. Prepare Indirect Dispatch
 		m_prepareDispatchShader = BDT_RESOURCE.LoadComputeShader
 		(
 			"RT.PrepareDispatch",
@@ -46,6 +45,12 @@ namespace bdt
 		if (!secondaryShader || !secondaryShader->IsValid() ||
 			!prepareShader   || !prepareShader->IsValid()) return false;
 
+        if (m_shaderProgram != secondaryShader->GetProgramID())
+        {
+            m_shaderProgram = secondaryShader->GetProgramID();
+            m_frameIndexLocation = glGetUniformLocation(m_shaderProgram, "uFrameIndex");
+        }
+        if (m_frameIndexLocation < 0) return false;
 		// 1. Reset Next Ray Counter
 		if (!queue->ResetNextRayCounter())
 			return false;
@@ -53,6 +58,7 @@ namespace bdt
 		// 2. Current Ray / Hit
 		queue->BindRayBuffer();
 		queue->BindHitBuffer();
+        queue->BindSurfaceBuffer();
 		queue->BindRayCounter();
 
 		// 3. Next Ray / Counter
@@ -71,6 +77,7 @@ namespace bdt
 
 		// 6. Compute Shader
 		secondaryShader->Bind();
+        glUniform1ui(m_frameIndexLocation, rtBus.GetFrameIndex());
 		queue->BindDispatchCommandBuffer();
 		glDispatchComputeIndirect(0);
 
@@ -100,5 +107,7 @@ namespace bdt
 	{
 		m_secondaryRayShader = {};
 		m_prepareDispatchShader = {};
+        m_shaderProgram = 0;
+        m_frameIndexLocation = -1;
 	}
 }

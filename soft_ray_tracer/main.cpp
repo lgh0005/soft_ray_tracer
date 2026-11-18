@@ -18,6 +18,7 @@ bdt::int32 main()
 	auto pipeline2 = bdt::MyRTBruteForce::Create();
 	auto world3 = bdt::RTBVHOptimizedWorld::Create();
 	auto pipeline3 = bdt::MyRTBVHOptimized::Create();
+	if (!pipeline3) return -1;
 
 	// 3. Level 등록
 	if (!g_application.RegisterLevel(std::move(world), std::move(pipeline)))

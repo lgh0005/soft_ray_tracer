@@ -15,8 +15,11 @@ namespace bdt
         ~RTBVHBuilder();
         static RTBVHBuilderUPtr Create(EBVHBuildMode buildMode);
         bool Prepare();
+        // Rebuilds affected trees on the next Prepare().
+        bool SetBuildSettings(const RTBVHBuildSettings& settings);
         void Shutdown();
         bool PrepareSkinnedBounds();
+        bool PrepareRefit(RTBVHRefitData& data, bool parallelInternalRefit);
 
         RTBVHStorage* GetStorage() const;
         void MarkBLASDirty();

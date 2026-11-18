@@ -157,5 +157,14 @@ namespace bdt
 		light->SetShadowOrthoSize(vec2(5.0f, 5.0f));
 		light->SetShadowEnabled(true);
 		light->SetEulerAngles(glm::radians(vec3(35.0f, -30.0f, 0.0f)));
+
+		// 7. 발판과 모델을 위에서 비추는 사각 면광원 (-Y 방향)
+		RectAreaLightActor* areaActor = AddRectAreaLightActor("AreaLight");
+		RectAreaLight* areaLight = areaActor->GetRectAreaLight();
+		areaLight->SetPosition(vec3(-1.0f, 3.0f, 0.5f));
+		areaLight->SetSize(vec2(3.0f, 2.0f));
+		areaLight->SetColor(vec3(1.0f, 0.85f, 0.65f));
+		areaLight->SetIntensity(15.0f);
+		areaLight->SetTwoSided(false);
 	}
 }

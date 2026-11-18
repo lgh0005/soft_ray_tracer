@@ -13,6 +13,9 @@
 #include "RTRayQueue.h"
 #include "RTBVHStorage.h"
 #include "RTBVHUpdateStorage.h"
+#include "RTBVHDenoiser.h"
+#include "RTRenderState.h"
+#include "RTEnvironment.h"
 #include "RTBVHBuilder.h"
 
 // Accelerates

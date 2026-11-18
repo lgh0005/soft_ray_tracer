@@ -1,0 +1,46 @@
+#version 460 core
+layout(local_size_x = 8, local_size_y = 8) in;
+
+struct Guide
+{
+    vec4 position;
+    vec4 normal;
+    vec4 previousPosition;
+    uvec4 ids;
+};
+layout(std430, binding = 0) readonly buffer CurrentGuide { Guide guides[]; };
+layout(rgba32f, binding = 0) uniform readonly image2D inputHDR;
+layout(rgba32f, binding = 1) uniform writeonly image2D outputHDR;
+uniform int stepWidth;
+
+void main()
+{
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(inputHDR);
+    if (any(greaterThanEqual(p, size))) return;
+    Guide g = guides[p.y * size.x + p.x];
+    vec4 center = imageLoad(inputHDR, p);
+    if (g.ids.z == 0u) { imageStore(outputHDR, p, center); return; }
+    // Delta guides carry sharp deterministic reflection/refraction; do not mix neighboring directions.
+    if (g.normal.w < 0.045) { imageStore(outputHDR, p, center); return; }
+    vec3 sum = vec3(0.0);
+    float weights = 0.0;
+    for (int y = -1; y <= 1; ++y)
+    {
+        for (int x = -1; x <= 1; ++x)
+        {
+            ivec2 n = p + ivec2(x, y) * stepWidth;
+            if (any(lessThan(n, ivec2(0))) || any(greaterThanEqual(n, size))) continue;
+            Guide q = guides[n.y * size.x + n.x];
+            if (q.ids.z == 0u || any(notEqual(q.ids.xy, g.ids.xy))) continue;
+            float w = exp(-float(x * x + y * y) * 0.5) * pow(max(dot(g.normal.xyz, q.normal.xyz), 0.0), 32.0);
+            w *= exp(-distance(g.position.xyz, q.position.xyz) * 40.0 / float(stepWidth));
+            vec3 c = imageLoad(inputHDR, n).xyz;
+            float scale = max(0.1, length(center.xyz));
+            w *= exp(-length(c - center.xyz) / (scale * 2.0));
+            sum += c * w;
+            weights += w;
+        }
+    }
+    imageStore(outputHDR, p, vec4(sum / max(weights, 1e-8), center.w));
+}

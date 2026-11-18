@@ -1,0 +1,817 @@
+#version 460 core
+
+layout(std140, binding = 2) uniform RTRenderSettings
+{
+    uint uMaxBounces;
+    uint uAreaSampleCount;
+    uint uTraceResolutionDivisor;
+    uint uDenoiseEnabled;
+    uint uTemporal;
+    uint uSpatialIterations;
+    uint uMaxAOSampleCount;
+    uint uAOEnabled;
+    uint uVisualizeAO;
+    uint uAOSampleCount;
+    float uAORadius;
+    uint _settingsPad0;
+    uint uEnvironmentEnabled;
+    uint uIBLEnabled;
+    uint uIBLSampleCount;
+    uint uIBLSamplingMode;
+    float uIBLIntensity;
+    float uEnvironmentRotation;
+    uint _iblPad0;
+    uint _iblPad1;
+};
+
+layout(local_size_x = 64) in;
+const uint RAY_ACTIVE = 1u;
+
+struct GPUStaticVertex
+{
+    vec4 position;
+    vec4 normal;
+    vec4 uv;
+};
+
+struct GPUMeshDescriptor
+{
+    uint vertexOffset;
+    uint vertexCount;
+    uint triangleOffset;
+    uint triangleCount;
+    uint meshType;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPUInstance
+{
+    mat4 worldMatrix;
+    mat4 inverseWorldMatrix;
+
+    uint meshIndex;
+    uint materialIndex;
+    uint boneOffset;
+    uint boneCount;
+
+    uint skinnedVertexOffset;
+    uint blasBoundsOffset;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPUBVHNodeTopology
+{
+    uvec4 treeTopology;
+    uvec4 primitiveRange;
+};
+
+struct GPUBVHNodeBounds
+{
+    vec4 aabbMin;
+    vec4 aabbMax;
+};
+
+struct GPUBVHDescriptor
+{
+    uvec4 ranges;
+    uvec4 metadata;
+};
+
+struct GPURTMaterial
+{
+    vec4 albedoFactor;
+    vec4 emission;
+    float metallicFactor;
+    float roughnessFactor;
+    float ior;
+    float transmission;
+    uint albedoTextureIndex;
+    uint normalTextureIndex;
+    uint aoTextureIndex;
+    uint roughnessTextureIndex;
+    uint emissionTextureIndex;
+    uint reservedTextureIndex;
+    uint metallicTextureIndex;
+    uint specularTextureIndex;
+};
+
+struct GPUSurfaceData
+{
+    vec4 worldPosition;
+    vec4 worldNormal;
+    vec4 albedo;
+    vec4 emission;
+    vec4 materialParams; // x=metallic, y=roughness, z=material AO, w=transmission
+    uint materialIndex;
+    uint instanceIndex;
+    uint valid;
+    uint pad0;
+};
+
+struct GPURay
+{
+    vec4 origin;
+    vec4 direction;
+};
+
+struct GPURayPayload
+{
+    vec4 throughput;
+
+    uint pixelIndex;
+    uint depth;
+    uint flags;
+    uint pad0;
+};
+
+struct GPURayWorkItem
+{
+    GPURay ray;
+    GPURayPayload payload;
+};
+
+struct LightData
+{
+    vec4 position;
+    vec4 direction;
+    vec4 color;
+    float intensity;
+    float range;
+    float innerConeAngle;
+    float outerConeAngle;
+    uint type;
+    float attenuationConstant;
+    float attenuationLinear;
+    float attenuationQuadratic;
+    int shadowIndex;
+    vec4 areaRight;
+    vec4 areaUp;
+    vec4 areaSize;
+    uint lightFlags;
+    uint pad0;
+    uint pad1;
+};
+layout(std430, binding = 2) readonly buffer LightBuffer
+{
+    LightData lights[];
+};
+
+layout(std430, binding = 3) readonly buffer VertexBuffer
+{
+    GPUStaticVertex vertices[];
+};
+
+layout(std430, binding = 4) readonly buffer IndexBuffer
+{
+    uint indices[];
+};
+
+layout(std430, binding = 5) readonly buffer MeshBuffer
+{
+    GPUMeshDescriptor meshes[];
+};
+
+layout(std430, binding = 6) readonly buffer InstanceBuffer
+{
+    GPUInstance instances[];
+};
+
+layout(std430, binding = 9) readonly buffer SkinnedOutputBuffer
+{
+    GPUStaticVertex outputVertices[];
+};
+
+layout(std430, binding = 16) readonly buffer BVHTopologyBuffer
+{
+    GPUBVHNodeTopology bvhTopology[];
+};
+
+layout(std430, binding = 17) readonly buffer BVHBoundsBuffer
+{
+    GPUBVHNodeBounds bvhBounds[];
+};
+
+// Instance별 Skinned BLAS Bounds
+layout(std430, binding = 20) readonly buffer BVHSkinnedBoundsBuffer
+{
+    GPUBVHNodeBounds skinnedBVHBounds[];
+};
+
+layout(std430, binding = 18) readonly buffer BVHPrimitiveBuffer
+{
+    uint bvhPrimitiveIndices[];
+};
+
+layout(std430, binding = 19) readonly buffer BVHDescriptorBuffer
+{
+    GPUBVHDescriptor bvhDescriptors[];
+};
+
+layout(std140, binding = 1) uniform RTFrameData
+{
+    uint uRayCount;
+    uint uInstanceCount;
+    uint uTLASDescriptorIndex;
+    uint _pad1;
+};
+
+
+layout(location = 0) uniform uint uFrameIndex;
+
+const uint INVALID_INDEX = 0xffffffffu;
+const uint MESH_TYPE_SKINNED = 1u;
+const uint LIGHT_RECT_AREA = 3u;
+const float SHADOW_BIAS = 0.0001;
+const float SHADOW_T_MIN = 0.000001;
+const float MAX_RAY_DISTANCE = 3.402823466e+38;
+
+const float PI = 3.14159265359;
+const float EPSILON = 0.0001;
+const uint LIGHT_DIRECTIONAL = 0u;
+const uint LIGHT_POINT = 1u;
+const uint LIGHT_SPOT = 2u;
+
+// GGX Normal Distribution
+//[수정] GGX / Smith / Schlick 기반 직접광 BRDF
+float DistributionGGX(vec3 N, vec3 H, float roughness)
+{
+    float safeRoughness = clamp(roughness, 0.045, 1.0);
+    float a = safeRoughness * safeRoughness;
+    float a2 = a * a;
+    float NdotH = clamp(dot(N, H), 0.0, 1.0);
+    float NdotH2 = NdotH * NdotH;
+    float numerator = a2;
+    //[수정] Cross-product sin² preserves small GGX angles without subtracting nearly equal floats.
+    float denominator = dot(cross(N, H), cross(N, H)) + a2 * NdotH2;
+    return numerator / (PI * denominator * denominator);
+}
+
+// Schlick-GGX Geometry
+float GeometrySchlickGGX(float NdotV, float roughness)
+{
+    float r = roughness + 1.0;
+    float k = (r * r) / 8.0;
+    return NdotV / max(NdotV * (1.0 - k) + k, EPSILON);
+}
+
+// Smith Geometry
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
+{
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    return GeometrySchlickGGX(NdotV, roughness)
+         * GeometrySchlickGGX(NdotL, roughness);
+}
+
+// Schlick Fresnel
+vec3 FresnelSchlick(float cosTheta, vec3 F0)
+{
+    return F0 + (1.0 - F0) * pow(1.0 - clamp(cosTheta, 0.0, 1.0), 5.0);
+}
+
+// Point / Spot 거리 감쇠
+float CalculateAttenuation(LightData light, float distance)
+{
+    if (distance >= light.range)
+        return 0.0;
+
+    float denominator =
+        light.attenuationConstant +
+        light.attenuationLinear * distance +
+        light.attenuationQuadratic * distance * distance;
+
+    float attenuation = 1.0 / max(denominator, EPSILON);
+
+    float rangeFactor = clamp
+    (
+        1.0 - distance / max(light.range, EPSILON),
+        0.0,
+        1.0
+    );
+
+    return attenuation * rangeFactor * rangeFactor;
+}
+
+// Opaque, double-sided any-hit traversal. Packed node/primitive offsets are absolute.
+struct ShadowRayData
+{
+    vec3 origin;
+    vec3 inverseDirection;
+    bvec3 parallel;
+};
+
+ShadowRayData PrepareShadowRay(vec3 origin, vec3 direction)
+{
+    ShadowRayData ray;
+    ray.origin = origin;
+    ray.parallel = equal(direction, vec3(0.0));
+    // Reuse the reciprocal for every node in this TLAS/BLAS traversal.
+    ray.inverseDirection = 1.0 / mix(direction, vec3(1.0), ray.parallel);
+    return ray;
+}
+
+bool IntersectShadowAABB(ShadowRayData ray, GPUBVHNodeBounds bounds, float tMin, float tMax)
+{
+    bvec3 outside = bvec3(ray.origin.x < bounds.aabbMin.x || ray.origin.x > bounds.aabbMax.x,
+        ray.origin.y < bounds.aabbMin.y || ray.origin.y > bounds.aabbMax.y,
+        ray.origin.z < bounds.aabbMin.z || ray.origin.z > bounds.aabbMax.z);
+    if (any(bvec3(ray.parallel.x && outside.x, ray.parallel.y && outside.y, ray.parallel.z && outside.z))) return false;
+    vec3 t0 = (bounds.aabbMin.xyz - ray.origin) * ray.inverseDirection;
+    vec3 t1 = (bounds.aabbMax.xyz - ray.origin) * ray.inverseDirection;
+    vec3 nearT = mix(min(t0, t1), vec3(-MAX_RAY_DISTANCE), ray.parallel);
+    vec3 farT = mix(max(t0, t1), vec3(MAX_RAY_DISTANCE), ray.parallel);
+    return max(tMin, max(nearT.x, max(nearT.y, nearT.z))) <= min(tMax, min(farT.x, min(farT.y, farT.z)));
+}
+
+bool IntersectShadowTriangle(vec3 origin, vec3 direction, vec3 v0, vec3 v1, vec3 v2, float tMin, float tMax)
+{
+    vec3 edge1 = v1 - v0;
+    vec3 edge2 = v2 - v0;
+    vec3 p = cross(direction, edge2);
+    float determinant = dot(edge1, p);
+    if (abs(determinant) < 1e-6) return false;
+    float inverseDeterminant = 1.0 / determinant;
+    vec3 offset = origin - v0;
+    float u = dot(offset, p) * inverseDeterminant;
+    if (u < 0.0 || u > 1.0) return false;
+    vec3 q = cross(offset, edge1);
+    float v = dot(direction, q) * inverseDeterminant;
+    if (v < 0.0 || u + v > 1.0) return false;
+    float t = dot(edge2, q) * inverseDeterminant;
+    return t > tMin && t < tMax;
+}
+
+uint GetShadowNodeEnd(GPUBVHDescriptor descriptor)
+{
+    // Validate the descriptor once rather than repeating its range arithmetic at every node.
+    uint available = uint(bvhTopology.length());
+    if (descriptor.ranges.x > available || descriptor.ranges.y > available - descriptor.ranges.x) return 0u;
+    return descriptor.ranges.x + descriptor.ranges.y;
+}
+
+uint NextShadowNode(uint current, uint next)
+{
+    // Preorder children and escape links must move forward; reject malformed cycles.
+    return next > current ? next : INVALID_INDEX;
+}
+
+GPUBVHNodeBounds GetShadowBLASBounds(GPUInstance instance, GPUMeshDescriptor mesh, GPUBVHDescriptor blas, uint nodeIndex)
+{
+    if (mesh.meshType == MESH_TYPE_SKINNED && instance.blasBoundsOffset != INVALID_INDEX)
+        return skinnedBVHBounds[instance.blasBoundsOffset + nodeIndex - blas.ranges.x];
+    return bvhBounds[nodeIndex];
+}
+
+bool TraceShadowBLAS(uint instanceID, vec3 origin, vec3 direction, float tMin, float tMax)
+{
+    GPUInstance instance = instances[instanceID];
+    if (instance.meshIndex >= uint(meshes.length()) || instance.meshIndex >= uint(bvhDescriptors.length())) return false;
+    GPUMeshDescriptor mesh = meshes[instance.meshIndex];
+    GPUBVHDescriptor blas = bvhDescriptors[instance.meshIndex];
+    vec3 localOrigin = (instance.inverseWorldMatrix * vec4(origin, 1.0)).xyz;
+    // Do not normalize: preserve world-space tMin/tMax under nonuniform scale.
+    vec3 localDirection = (instance.inverseWorldMatrix * vec4(direction, 0.0)).xyz;
+    ShadowRayData localRay = PrepareShadowRay(localOrigin, localDirection);
+    uint nodeIndex = blas.metadata.x;
+    uint nodeEnd = GetShadowNodeEnd(blas);
+    if (nodeIndex < blas.ranges.x) return false;
+    while (nodeIndex < nodeEnd)
+    {
+        GPUBVHNodeTopology node = bvhTopology[nodeIndex];
+        GPUBVHNodeBounds bounds = GetShadowBLASBounds(instance, mesh, blas, nodeIndex);
+        if (!IntersectShadowAABB(localRay, bounds, tMin, tMax))
+        {
+            nodeIndex = NextShadowNode(nodeIndex, node.primitiveRange.w);
+            continue;
+        }
+        if (node.treeTopology.w == 0u)
+        {
+            nodeIndex = NextShadowNode(nodeIndex, node.treeTopology.x);
+            continue;
+        }
+        for (uint i = 0u; i < node.primitiveRange.y; ++i)
+        {
+            uint triangle = bvhPrimitiveIndices[node.primitiveRange.x + i];
+            if (triangle >= mesh.triangleCount) continue;
+            uint firstIndex = (mesh.triangleOffset + triangle) * 3u;
+            uvec3 triangleIndices = uvec3(indices[firstIndex], indices[firstIndex + 1u], indices[firstIndex + 2u]);
+            vec3 v0, v1, v2;
+            if (mesh.meshType == MESH_TYPE_SKINNED)
+            {
+                uint offset = instance.skinnedVertexOffset;
+                v0 = outputVertices[offset + triangleIndices.x].position.xyz;
+                v1 = outputVertices[offset + triangleIndices.y].position.xyz;
+                v2 = outputVertices[offset + triangleIndices.z].position.xyz;
+            }
+            else
+            {
+                uint offset = mesh.vertexOffset;
+                v0 = vertices[offset + triangleIndices.x].position.xyz;
+                v1 = vertices[offset + triangleIndices.y].position.xyz;
+                v2 = vertices[offset + triangleIndices.z].position.xyz;
+            }
+            if (IntersectShadowTriangle(localOrigin, localDirection, v0, v1, v2, tMin, tMax)) return true;
+        }
+        nodeIndex = NextShadowNode(nodeIndex, node.primitiveRange.w);
+    }
+    return false;
+}
+
+bool TraceAny(vec3 origin, vec3 direction, float tMin, float tMax)
+{
+    if (tMax <= tMin || uTLASDescriptorIndex >= uint(bvhDescriptors.length())) return false;
+    GPUBVHDescriptor tlas = bvhDescriptors[uTLASDescriptorIndex];
+    ShadowRayData worldRay = PrepareShadowRay(origin, direction);
+    uint nodeIndex = tlas.metadata.x;
+    uint nodeEnd = GetShadowNodeEnd(tlas);
+    if (nodeIndex < tlas.ranges.x) return false;
+    while (nodeIndex < nodeEnd)
+    {
+        GPUBVHNodeTopology node = bvhTopology[nodeIndex];
+        if (!IntersectShadowAABB(worldRay, bvhBounds[nodeIndex], tMin, tMax))
+        {
+            nodeIndex = NextShadowNode(nodeIndex, node.primitiveRange.w);
+            continue;
+        }
+        if (node.treeTopology.w == 0u)
+        {
+            nodeIndex = NextShadowNode(nodeIndex, node.treeTopology.x);
+            continue;
+        }
+        for (uint i = 0u; i < node.primitiveRange.y; ++i)
+        {
+            uint instanceID = bvhPrimitiveIndices[node.primitiveRange.x + i];
+            if (instanceID >= uInstanceCount) continue;
+            if (TraceShadowBLAS(instanceID, origin, direction, tMin, tMax)) return true;
+        }
+        nodeIndex = NextShadowNode(nodeIndex, node.primitiveRange.w);
+    }
+    return false;
+}
+
+bool IsLightSampleVisible(vec3 worldPosition, vec3 N, vec3 samplePoint)
+{
+    vec3 origin = worldPosition + N * SHADOW_BIAS;
+    vec3 toLight = samplePoint - origin;
+    float distance = length(toLight);
+    if (distance <= SHADOW_BIAS) return false;
+    return !TraceAny(origin, toLight / distance, SHADOW_T_MIN, distance - SHADOW_BIAS);
+}
+
+// BRDF * surface cosine, shared by analytic lights and area samples.
+vec3 EvaluateDirectBRDF(GPURTMaterial material, vec3 N, vec3 V, vec3 L)
+{
+    float NdotL = max(dot(N, L), 0.0);
+    float NdotV = max(dot(N, V), 0.0);
+    if (NdotL <= 0.0 || NdotV <= 0.0) return vec3(0.0);
+
+    vec3 H = normalize(V + L);
+    vec3 albedo = clamp(material.albedoFactor.rgb, vec3(0.0), vec3(1.0));
+    float metallic = clamp(material.metallicFactor, 0.0, 1.0);
+    float roughness = clamp(material.roughnessFactor, 0.045, 1.0);
+    float transmission = clamp(material.transmission, 0.0, 1.0);
+    float ior = max(material.ior, 0.001);
+    float dielectricF0 = (ior - 1.0) / (ior + 1.0);
+    dielectricF0 *= dielectricF0;
+    vec3 F0 = mix(vec3(dielectricF0), albedo, metallic);
+
+    float NDF = DistributionGGX(N, H, roughness);
+    float G = GeometrySmith(N, V, L, roughness);
+    vec3 F = FresnelSchlick(max(dot(H, V), 0.0), F0);
+    vec3 specular = (NDF * G * F) / max(4.0 * NdotV * NdotL, EPSILON);
+    vec3 kD = (vec3(1.0) - F) * (1.0 - metallic) * (1.0 - transmission);
+    return (kD * albedo / PI + specular) * NdotL;
+}
+
+vec3 EvaluatePBRLight(LightData light, GPURTMaterial material, vec3 worldPosition, vec3 N, vec3 V)
+{
+    vec3 L;
+    float attenuation = 1.0;
+    if (light.type == LIGHT_DIRECTIONAL)
+    {
+        L = normalize(-light.direction.xyz);
+    }
+    else if (light.type == LIGHT_POINT || light.type == LIGHT_SPOT)
+    {
+        vec3 toLight = light.position.xyz - worldPosition;
+        float distance = length(toLight);
+        if (distance >= light.range || distance <= EPSILON) return vec3(0.0);
+        L = toLight / distance;
+        attenuation = CalculateAttenuation(light, distance);
+        if (light.type == LIGHT_SPOT)
+        {
+            float theta = dot(-L, normalize(light.direction.xyz));
+            float coneWidth = light.innerConeAngle - light.outerConeAngle;
+            attenuation *= clamp((theta - light.outerConeAngle) / max(coneWidth, EPSILON), 0.0, 1.0);
+        }
+    }
+    else return vec3(0.0);
+
+    float NdotL = max(dot(N, L), 0.0);
+    float NdotV = max(dot(N, V), 0.0);
+    if (NdotL <= 0.0 || NdotV <= 0.0) return vec3(0.0);
+
+    if (attenuation <= 0.0) return vec3(0.0);
+    // shadowIndex describes shadow maps, not RT visibility. All lights cast RT shadows here.
+    if (light.type == LIGHT_DIRECTIONAL)
+    {
+        if (TraceAny(worldPosition + N * SHADOW_BIAS, L, SHADOW_T_MIN, MAX_RAY_DISTANCE)) return vec3(0.0);
+    }
+    else if (!IsLightSampleVisible(worldPosition, N, light.position.xyz)) return vec3(0.0);
+
+    vec3 radiance = light.color.rgb * light.intensity * attenuation;
+    return EvaluateDirectBRDF(material, N, V, L) * radiance;
+}
+
+uint HashSample(uint value)
+{
+    value ^= value >> 16u;
+    value *= 0x7feb352du;
+    value ^= value >> 15u;
+    value *= 0x846ca68bu;
+    return value ^ (value >> 16u);
+}
+
+float NextSample(inout uint state)
+{
+    state = HashSample(state + 0x9e3779b9u);
+    return float(state >> 8u) * (1.0 / 16777216.0);
+}
+
+//[수정] Area and GGX proposals share a solid-angle mixture PDF; all null attempts remain in the average.
+float IBLBSDFPdf(GPURTMaterial material, vec3 N, vec3 V, vec3 L);
+vec3 IBLSampleBSDF(GPURTMaterial material, vec3 N, vec3 V, inout uint state);
+
+vec3 EvaluateAreaLight(LightData light, GPURTMaterial material, vec3 worldPosition, vec3 N, vec3 V, inout uint state)
+{
+    if (light.intensity <= 0.0 || light.areaSize.x <= 0.0 || light.areaSize.y <= 0.0) return vec3(0.0);
+    vec3 right = light.areaRight.xyz;
+    vec3 up = light.areaUp.xyz;
+    vec3 normal = cross(right, up);
+    float normalLength = length(normal);
+    if (normalLength <= EPSILON) return vec3(0.0);
+    normal /= normalLength;
+    float area = light.areaSize.x * light.areaSize.y;
+    if (isnan(area) || isinf(area) || dot(N, V) <= 0.0) return vec3(0.0);
+    float ior = max(material.ior, 0.001);
+    float f0 = (ior - 1.0) / (ior + 1.0);
+    f0 *= f0;
+    float metallic = clamp(material.metallicFactor, 0.0, 1.0);
+    vec3 baseColor = clamp(material.albedoFactor.rgb, vec3(0.0), vec3(1.0));
+    vec3 f0Color = mix(vec3(f0), baseColor, metallic);
+    float specularEnergy = max(f0Color.r, max(f0Color.g, f0Color.b));
+    float diffuseEnergy = (1.0 - metallic) * (1.0 - clamp(material.transmission, 0.0, 1.0))
+        * (1.0 - specularEnergy) * dot(baseColor, vec3(1.0 / 3.0));
+    float bsdfProbability = 0.0;
+    if (specularEnergy + diffuseEnergy > 0.0)
+        bsdfProbability = min(0.95, specularEnergy / (specularEnergy + diffuseEnergy));
+    // Broad lobes favor the original area proposal; avoid adding null-sample variance there.
+    bsdfProbability *= 1.0 - smoothstep(0.2, 0.5, material.roughnessFactor);
+    uint sampleCount = clamp(uAreaSampleCount, 1u, 8u);
+    vec3 radiance = vec3(0.0);
+    for (uint i = 0u; i < sampleCount; ++i)
+    {
+        vec3 samplePoint;
+        if (bsdfProbability > 0.0 && NextSample(state) < bsdfProbability)
+        {
+            vec3 direction = IBLSampleBSDF(material, N, V, state);
+            float denominator = dot(direction, normal);
+            if (abs(denominator) < 1e-8) continue;
+            float t = dot(light.position.xyz - worldPosition, normal) / denominator;
+            if (t <= SHADOW_BIAS) continue;
+            samplePoint = worldPosition + t * direction;
+            vec3 offset = samplePoint - light.position.xyz;
+            vec2 coordinates = vec2(dot(offset, right) / dot(right, right), dot(offset, up) / dot(up, up));
+            if (any(greaterThan(abs(coordinates), 0.5 * light.areaSize.xy))) continue;
+        }
+        else
+        {
+            vec2 xi = vec2(NextSample(state), NextSample(state));
+            samplePoint = light.position.xyz + right * ((xi.x - 0.5) * light.areaSize.x)
+                + up * ((xi.y - 0.5) * light.areaSize.y);
+        }
+        vec3 toLight = samplePoint - worldPosition;
+        float distanceSquared = dot(toLight, toLight);
+        if (distanceSquared <= SHADOW_BIAS * SHADOW_BIAS || isnan(distanceSquared) || isinf(distanceSquared)) continue;
+        vec3 L = toLight * inversesqrt(distanceSquared);
+        float emitterCos = dot(normal, -L);
+        if ((light.lightFlags & 1u) != 0u) emitterCos = abs(emitterCos);
+        if (emitterCos <= 0.0 || dot(N, L) <= 0.0) continue;
+        float areaPdf = distanceSquared / (emitterCos * area);
+        float bsdfPdf = IBLBSDFPdf(material, N, V, L);
+        float pdf = (1.0 - bsdfProbability) * areaPdf + bsdfProbability * bsdfPdf;
+        if (!(pdf > 0.0)) continue;
+        vec3 contribution = EvaluateDirectBRDF(material, N, V, L) * light.color.rgb * light.intensity / pdf;
+        if (all(lessThanEqual(contribution, vec3(0.0)))) continue;
+        if (IsLightSampleVisible(worldPosition, N, samplePoint)) radiance += contribution;
+    }
+    return radiance / float(sampleCount);
+}
+
+layout(std430, binding = 0) readonly buffer RayBuffer
+{
+    GPURayWorkItem rays[];
+};
+layout(std430, binding = 11) readonly buffer RayCounterBuffer
+{
+    uint rayCount;
+};
+layout(std430, binding = 15) readonly buffer MaterialBuffer
+{
+    GPURTMaterial materials[];
+};
+layout(std430, binding = 21) readonly buffer SurfaceBuffer
+{
+    GPUSurfaceData surfaces[];
+};
+layout(std430, binding = 22) writeonly buffer DirectLightingBuffer
+{
+    vec4 directLighting[];
+};
+
+
+layout(binding=16) uniform sampler2D rtEnvironmentImage;
+layout(binding=17) uniform sampler2D rtEnvironmentDistribution;
+layout(std140,binding=3) uniform RTEnvironmentData
+{
+    vec4 environmentTransform; // cos(yaw), sin(yaw), intensity, ready
+    uvec4 environmentDistributionSize;
+};
+const float IBL_PI=3.14159265358979323846;
+bool IBLEnvironmentReady(){return uEnvironmentEnabled!=0u&&environmentTransform.w>0.0;}
+vec3 IBLToEnvironment(vec3 d){float c=environmentTransform.x,s=environmentTransform.y;return vec3(c*d.x-s*d.z,d.y,s*d.x+c*d.z);}
+vec3 IBLToWorld(vec3 d){float c=environmentTransform.x,s=environmentTransform.y;return vec3(c*d.x+s*d.z,d.y,-s*d.x+c*d.z);}
+vec2 IBLEnvironmentUV(vec3 direction)
+{
+    vec3 d=normalize(IBLToEnvironment(direction));
+    float longitude=dot(d.xz,d.xz)>1e-12?atan(d.z,d.x):0.0;
+    return vec2(longitude/(2.0*IBL_PI)+0.5,asin(clamp(d.y,-1.0,1.0))/IBL_PI+0.5);
+}
+vec3 IBLEnvironmentRadiance(vec3 direction)
+{
+    vec3 value=textureLod(rtEnvironmentImage,IBLEnvironmentUV(direction),0.0).rgb;
+    if(any(isnan(value))||any(isinf(value)))return vec3(0.0);
+    vec3 radiance=max(value,vec3(0.0))*environmentTransform.z;
+    if(any(isnan(radiance))||any(isinf(radiance)))return vec3(0.0);
+    return radiance;
+}
+uint IBLHash(uint x){x^=x>>16u;x*=0x7feb352du;x^=x>>15u;x*=0x846ca68bu;return x^(x>>16u);}
+float IBLRandom(inout uint state){state=IBLHash(state+0x9e3779b9u);return float(state>>8u)*(1.0/16777216.0);}
+vec3 IBLBasis(vec3 N,vec3 local)
+{
+    vec3 axis=abs(N.z)<0.999?vec3(0,0,1):vec3(0,1,0);
+    vec3 T=normalize(cross(axis,N));return normalize(T*local.x+cross(N,T)*local.y+N*local.z);
+}
+vec3 IBLCosineDirection(vec3 N,inout uint state)
+{
+    float u=IBLRandom(state),phi=2.0*IBL_PI*IBLRandom(state),r=sqrt(u);
+    return IBLBasis(N,vec3(r*cos(phi),r*sin(phi),sqrt(max(0.0,1.0-u))));
+}
+float IBLTexelSolidAngle(int y,ivec2 size)
+{
+    float lo=IBL_PI*(float(y)/float(size.y)-0.5),hi=IBL_PI*(float(y+1)/float(size.y)-0.5);
+    return (2.0*IBL_PI/float(size.x))*(sin(hi)-sin(lo));
+}
+float IBLEnvironmentPdf(vec3 direction)
+{
+    ivec2 size=ivec2(environmentDistributionSize.xy);
+    float total=texelFetch(rtEnvironmentDistribution,ivec2(size.y-1,size.y),0).r;
+    if(!(total>0.0)||isinf(total)||isnan(total))return 1.0/(4.0*IBL_PI);
+    ivec2 pixel=clamp(ivec2(IBLEnvironmentUV(direction)*vec2(size)),ivec2(0),size-1);
+    float mass=texelFetch(rtEnvironmentDistribution,pixel,0).g;
+    return 0.99*mass/IBLTexelSolidAngle(pixel.y,size)+0.01/(4.0*IBL_PI);
+}
+vec3 IBLSampleEnvironment(inout uint state)
+{
+    ivec2 size=ivec2(environmentDistributionSize.xy);
+    float total=texelFetch(rtEnvironmentDistribution,ivec2(size.y-1,size.y),0).r;
+    float choice=IBLRandom(state);
+    if(!(total>0.0)||isinf(total)||isnan(total)||choice<0.01)
+    {
+        float y=2.0*IBLRandom(state)-1.0,phi=2.0*IBL_PI*IBLRandom(state);
+        float r=sqrt(max(0.0,1.0-y*y));return IBLToWorld(vec3(r*cos(phi),y,r*sin(phi)));
+    }
+    float target=IBLRandom(state)*total;
+    int lo=0,hi=size.y-1;
+    while(lo<hi){int mid=(lo+hi)/2;if(texelFetch(rtEnvironmentDistribution,ivec2(mid,size.y),0).r<=target)lo=mid+1;else hi=mid;}
+    int y=lo;float rowTotal=texelFetch(rtEnvironmentDistribution,ivec2(size.x-1,y),0).r;
+    target=IBLRandom(state)*rowTotal;lo=0;hi=size.x-1;
+    while(lo<hi){int mid=(lo+hi)/2;if(texelFetch(rtEnvironmentDistribution,ivec2(mid,y),0).r<=target)lo=mid+1;else hi=mid;}
+    float u=(float(lo)+IBLRandom(state))/float(size.x);
+    float latLo=IBL_PI*(float(y)/float(size.y)-0.5),latHi=IBL_PI*(float(y+1)/float(size.y)-0.5);
+    float sy=mix(sin(latLo),sin(latHi),IBLRandom(state));float rr=sqrt(max(0.0,1.0-sy*sy));
+    float phi=(u-0.5)*2.0*IBL_PI;return IBLToWorld(vec3(rr*cos(phi),sy,rr*sin(phi)));
+}
+
+// Environment shares the existing GGX/Schlick-GGX reflection model.
+bool IBLHasRoughContinuation(GPURTMaterial m){return m.roughnessFactor>=0.045&&m.transmission<=0.0;}
+vec3 IBLF0(GPURTMaterial m)
+{
+    float ior=max(m.ior,0.001),f=(ior-1.0)/(ior+1.0);
+    return mix(vec3(f*f),clamp(m.albedoFactor.rgb,vec3(0),vec3(1)),clamp(m.metallicFactor,0.0,1.0));
+}
+vec3 IBLFresnel(float cosine,vec3 f0){return f0+(1.0-f0)*pow(1.0-clamp(cosine,0.0,1.0),5.0);}
+float IBLDistribution(vec3 N,vec3 H,float roughness)
+{
+    float a=clamp(roughness,0.045,1.0);a*=a;float a2=a*a;
+    float nh=clamp(dot(N,H),0.0,1.0),den=dot(cross(N,H),cross(N,H))+a2*nh*nh;
+    return a2/(IBL_PI*den*den);
+}
+float IBLGeometry(float cosine,float roughness)
+{
+    float rr=clamp(roughness,0.045,1.0)+1.0,k=rr*rr/8.0;
+    return cosine/max(cosine*(1.0-k)+k,0.0001);
+}
+void IBLComponents(GPURTMaterial m,vec3 N,vec3 V,vec3 L,out vec3 diffuse,out vec3 specular)
+{
+    diffuse=vec3(0);specular=vec3(0);
+    float nl=max(dot(N,L),0.0),nv=max(dot(N,V),0.0);
+    if(nl<=0.0||nv<=0.0||dot(V+L,V+L)<1e-12)return;
+    vec3 H=normalize(V+L),F=IBLFresnel(max(dot(H,V),0.0),IBLF0(m));
+    if(m.ior==1.0&&m.metallicFactor<=0.0)F=vec3(0);
+    diffuse=(1.0-F)*(1.0-clamp(m.metallicFactor,0.0,1.0))*(1.0-clamp(m.transmission,0.0,1.0))*clamp(m.albedoFactor.rgb,vec3(0),vec3(1))*(nl/IBL_PI);
+    if(IBLHasRoughContinuation(m))specular=IBLDistribution(N,H,m.roughnessFactor)*IBLGeometry(nv,m.roughnessFactor)*IBLGeometry(nl,m.roughnessFactor)*F/max(4.0*nv*nl,0.0001)*nl;
+}
+vec3 IBLBRDFCos(GPURTMaterial m,vec3 N,vec3 V,vec3 L)
+{
+    vec3 diffuse,specular;IBLComponents(m,N,V,L,diffuse,specular);return diffuse+specular;
+}
+float IBLSpecularProbability(GPURTMaterial m){return 0.5+0.5*clamp(m.metallicFactor,0.0,1.0);}
+float IBLBSDFPdf(GPURTMaterial m,vec3 N,vec3 V,vec3 L)
+{
+    float nl=max(dot(N,L),0.0);if(nl<=0.0||dot(V+L,V+L)<1e-12)return 0.0;
+    vec3 H=normalize(V+L);float vh=dot(V,H);if(vh<=0.0)return 0.0;
+    float specular=IBLDistribution(N,H,m.roughnessFactor)*max(dot(N,H),0.0)/(4.0*vh);
+    return specular;
+}
+vec3 IBLSampleBSDF(GPURTMaterial m,vec3 N,vec3 V,inout uint state)
+{
+    float u=IBLRandom(state),phi=2.0*IBL_PI*IBLRandom(state);
+    float a=clamp(m.roughnessFactor,0.045,1.0);a*=a;float a2=a*a;
+    float ct=sqrt((1.0-u)/(1.0+(a2-1.0)*u)),st=sqrt(max(0.0,1.0-ct*ct));
+    vec3 H=IBLBasis(N,vec3(st*cos(phi),st*sin(phi),ct));return reflect(-V,H);
+}
+float IBLProposalPdf(vec3 N,vec3 L){return uIBLSamplingMode==0u?max(dot(N,L),0.0)/IBL_PI:IBLEnvironmentPdf(L);}
+
+vec3 EvaluateEnvironmentLight(GPURayWorkItem ray,GPURTMaterial material,vec3 position,vec3 N,vec3 V)
+{
+    if(!IBLEnvironmentReady()||uIBLEnabled==0u||uIBLSampleCount==0u||environmentTransform.z<=0.0)return vec3(0);
+    if(!IBLHasRoughContinuation(material)&&(material.metallicFactor>=1.0||material.transmission>=1.0))return vec3(0);
+    uint state=IBLHash(ray.payload.pixelIndex^IBLHash(ray.payload.depth+719u)^IBLHash(uFrameIndex+113u)^IBLHash(floatBitsToUint(ray.ray.direction.x))^IBLHash(floatBitsToUint(ray.ray.direction.y)));
+    vec3 result=vec3(0);uint count=clamp(uIBLSampleCount,1u,8u);
+    bool continuation=uIBLSamplingMode==2u&&ray.payload.depth<uMaxBounces&&IBLHasRoughContinuation(material);
+    for(uint i=0u;i<count;++i)
+    {
+        vec3 L=uIBLSamplingMode==0u?IBLCosineDirection(N,state):IBLSampleEnvironment(state);
+        if(dot(N,L)<=0.0)continue;
+        float pe=IBLProposalPdf(N,L);if(!(pe>0.0))continue;
+        vec3 diffuse,specular;IBLComponents(material,N,V,L,diffuse,specular);if(all(lessThanEqual(diffuse+specular,vec3(0))))continue;
+        vec3 Le=IBLEnvironmentRadiance(L);if(all(lessThanEqual(Le,vec3(0))))continue;
+        float pb=continuation?IBLBSDFPdf(material,N,V,L):0.0;
+        float weight=(float(count)*pe)/(float(count)*pe+pb);
+        if(!TraceAny(position+N*SHADOW_BIAS,L,SHADOW_T_MIN,MAX_RAY_DISTANCE))result+=(diffuse+specular*weight)*Le/pe;
+    }
+    return result/float(count);
+}
+void main()
+{
+    uint rayIndex = gl_GlobalInvocationID.x;
+    if (rayIndex >= rayCount) return;
+
+    // Clear every queued slot, including inactive rays and misses.
+    directLighting[rayIndex] = vec4(0.0);
+    GPURayWorkItem ray = rays[rayIndex];
+    if ((ray.payload.flags & RAY_ACTIVE) == 0u) return;
+    GPUSurfaceData surface = surfaces[rayIndex];
+    if (surface.valid == 0u) return;
+
+    GPURTMaterial material = materials[surface.materialIndex];
+    material.albedoFactor = surface.albedo;
+    material.emission = surface.emission;
+    material.metallicFactor = surface.materialParams.x;
+    material.roughnessFactor = surface.materialParams.y;
+    material.transmission = surface.materialParams.w;
+
+    vec3 worldNormal = normalize(surface.worldNormal.xyz);
+    vec3 V = normalize(-ray.ray.direction.xyz);
+    vec3 N = dot(worldNormal, V) < 0.0 ? -worldNormal : worldNormal;
+    vec3 radiance = vec3(0.0);
+    for (uint i = 0u; i < uint(lights.length()); ++i)
+    {
+        LightData light = lights[i];
+        if (light.type == LIGHT_RECT_AREA)
+        {
+            uint state = HashSample(rayIndex ^ HashSample(i + 1u) ^ HashSample(ray.payload.depth + 17u) ^ HashSample(uFrameIndex + 31u));
+            radiance += EvaluateAreaLight(light, material, surface.worldPosition.xyz, N, V, state);
+        }
+        else
+        {
+            radiance += EvaluatePBRLight(light, material, surface.worldPosition.xyz, N, V);
+        }
+    }
+    radiance += EvaluateEnvironmentLight(ray, material, surface.worldPosition.xyz, N, V);
+    directLighting[rayIndex] = vec4(radiance, 0.0);
+}

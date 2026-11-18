@@ -23,7 +23,7 @@ namespace bdt
         m_resolveShader = BDT_RESOURCE.LoadComputeShader
         (
             "RT.BruteForce.ImageResolve",
-            { { GL_COMPUTE_SHADER, "Assets/Default/Shaders/bdt_rt_brute_force_image_resolve.comp" } }
+            { { GL_COMPUTE_SHADER, "Assets/Default/Shaders/bdt_rt_image_resolve.comp" } }
         );
         return true;
     }

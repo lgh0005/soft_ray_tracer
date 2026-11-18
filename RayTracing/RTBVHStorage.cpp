@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "RTBVHStorage.h"
 #include "Enums.h"
+#include "RayTracing.h"
 
 namespace bdt
 {
@@ -20,23 +21,132 @@ namespace bdt
 
     bool RTBVHStorage::Init(EBVHBuildMode buildMode)
     {
-        m_buildMode = buildMode;
+        m_buildSettings.blasBuildMode = buildMode;
+        m_buildSettings.tlasBuildMode = buildMode;
         m_topologyBuffer = GLStorageBuffer::Create();
         m_boundsBuffer = GLStorageBuffer::Create();
         m_primitiveBuffer = GLStorageBuffer::Create();
         m_descriptorBuffer = GLStorageBuffer::Create();
+        m_levelTaskBuffer = GLStorageBuffer::Create();
 		m_skinnedBoundsBuffer = GLStorageBuffer::Create();
         
         return m_topologyBuffer &&
             m_boundsBuffer &&
             m_primitiveBuffer &&
             m_descriptorBuffer &&
-            m_skinnedBoundsBuffer;
+            m_skinnedBoundsBuffer &&
+            m_levelTaskBuffer;
+    }
+
+    /*==========================================//
+    //           BLAS Refit Level Tasks          //
+    //==========================================*/
+    bool RTBVHStorage::PrepareRefit(RTBVHRefitData& data, bool parallelInternalRefit)
+    {
+        data.instanceCount = BDT_INSTANCE.GetInstanceCount();
+        data.tlasNodeCount = 0;
+        if (data.instanceCount == 0)
+        {
+            data.refitBLAS = false;
+            data.refitTLAS = false;
+            return true;
+        }
+        if (!data.refitTLAS) return true;
+        if (!m_tlas || m_tlas->IsEmpty() || m_tlasDescIdx >= m_descriptors.size()) return false;
+        data.tlasNodeCount = m_tlas->GetNodeCount();
+        if (data.refitBLAS && parallelInternalRefit && !PrepareRefitLevelTasks()) return false;
+        return true;
+    }
+
+    bool RTBVHStorage::PrepareRefitLevelTasks()
+    {
+        BDT_STATIC_ASSERT(sizeof(uvec2) == 8, "Refit task stride must match std430 uvec2");
+        if (!m_isLevelTasksDirty) return true;
+        if (m_blas.size() != BDT_INSTANCE.GetGeometryCount()) return false;
+
+        List<List<uvec2>> levels;
+        uint32 nodeOffset = 0;
+        for (uint32 meshIndex = 0; meshIndex < BDT_INSTANCE.GetGeometryCount(); ++meshIndex)
+        {
+            const BLAS* blas = GetBLAS(meshIndex);
+            if (!blas) return false;
+            if (BDT_INSTANCE.GetMeshDescriptor(meshIndex).meshType == static_cast<uint32>(ERTMeshType::Skinned))
+            {
+                const auto& topology = blas->GetTopology();
+                List<uint32> depths(topology.size(), 0u);
+                for (uint32 nodeIndex = 0; nodeIndex < blas->GetNodeCount(); ++nodeIndex)
+                {
+                    const auto& node = topology[nodeIndex];
+                    if (nodeIndex != blas->GetRootIndex())
+                    {
+                        const uint32 parentIndex = node.treeTopology.z;
+                        if (parentIndex >= nodeIndex) return false;
+                        depths[nodeIndex] = depths[parentIndex] + 1u;
+                    }
+                    if (node.treeTopology.w != 0u) continue;
+                    const uint32 depth = depths[nodeIndex];
+                    if (levels.size() <= depth) levels.resize(static_cast<usize>(depth) + 1u);
+                    levels[depth].emplace_back(meshIndex, nodeOffset + nodeIndex);
+                }
+            }
+            nodeOffset += blas->GetNodeCount();
+        }
+
+        List<uvec2> tasks;
+        List<uvec2> ranges;
+        for (usize depth = levels.size(); depth-- > 0;)
+        {
+            if (levels[depth].empty()) continue;
+            const uint64 taskCount = static_cast<uint64>(tasks.size()) + levels[depth].size();
+            if (taskCount > MaxValue<uint32> / sizeof(uvec2)) return false;
+            ranges.emplace_back(static_cast<uint32>(tasks.size()), static_cast<uint32>(levels[depth].size()));
+            tasks.insert(tasks.end(), levels[depth].begin(), levels[depth].end());
+        }
+        if (!m_levelTaskBuffer) return false;
+        if (!m_levelTaskBuffer->Update(tasks.data(), static_cast<uint32>(tasks.size() * sizeof(uvec2)))) return false;
+
+        m_levelRanges = std::move(ranges);
+        m_isLevelTasksDirty = false;
+        return true;
+    }
+
+    const List<uvec2>& RTBVHStorage::GetRefitLevelRanges() const
+    {
+        return m_levelRanges;
+    }
+
+    void RTBVHStorage::BindRefitLevelTasks() const
+    {
+        // Refit temporarily borrows Hit binding; ClosestHit restores its buffer.
+        m_levelTaskBuffer->Bind(static_cast<uint32>(ERTStorageBinding::Hit));
     }
 
     /*==========================================//
     //               BVH Updates                //
     //==========================================*/
+    bool RTBVHStorage::SetBuildSettings(const RTBVHBuildSettings& settings)
+    {
+        if (settings.blasBuildMode > EBVHBuildMode::SAH32 || settings.tlasBuildMode > EBVHBuildMode::SAH32) return false;
+        if (settings.blasMaxLeafPrimitives == 0 || settings.tlasMaxLeafPrimitives == 0) return false;
+        m_buildSettings = settings;
+        return true;
+    }
+
+    const RTBVHBuildSettings& RTBVHStorage::GetBuildSettings() const
+    {
+        return m_buildSettings;
+    }
+
+    bool RTBVHStorage::RebuildBLAS(const List<RTBVHMeshInput>& meshes)
+    {
+        return RebuildBLAS(meshes, m_buildSettings.blasMaxLeafPrimitives);
+    }
+
+    bool RTBVHStorage::RebuildTLAS(const List<GPUBVHNodeBounds>& instanceBounds)
+    {
+        return RebuildTLAS(instanceBounds, m_buildSettings.tlasMaxLeafPrimitives);
+    }
+
     bool RTBVHStorage::RebuildBLAS(const List<RTBVHMeshInput>& meshes, uint32 maxLeafPrimitives)
     {
         if (maxLeafPrimitives == 0) return false;
@@ -61,7 +171,7 @@ namespace bdt
         // BLAS 재구축
         for (const RTBVHMeshInput* mesh : orderedMeshes)
         {
-            BLASUPtr blas = std::make_unique<BLAS>(mesh->meshIndex, m_buildMode);
+            BLASUPtr blas = std::make_unique<BLAS>(mesh->meshIndex, m_buildSettings.blasBuildMode);
             if (!blas->Build(*mesh->vertices, *mesh->indices, maxLeafPrimitives)) return false;
             if (!AppendBVH(*blas, mesh->meshIndex)) return false;
             m_blas.emplace_back(std::move(blas));
@@ -77,7 +187,7 @@ namespace bdt
         if (instanceBounds.size() > MaxValue<uint32>) return false;
 
         // 1. 새로운 TLAS 구축
-        TLASUPtr newTLAS = std::make_unique<TLAS>(m_buildMode);
+        TLASUPtr newTLAS = std::make_unique<TLAS>(m_buildSettings.tlasBuildMode);
         if (!newTLAS->Build(instanceBounds, maxLeafPrimitives))
             return false;
 
@@ -279,6 +389,9 @@ namespace bdt
     //==========================================*/
     void RTBVHStorage::Clear()
     {
+        ++m_blasRevision;
+        m_isLevelTasksDirty = true;
+        m_levelRanges.clear();
         m_blas.clear();
         m_tlas.reset();
 
@@ -298,6 +411,9 @@ namespace bdt
         // BLAS를 제거하기 전에 TLAS부터 제거
         if (!ClearTLAS()) return false;
 
+        ++m_blasRevision;
+        m_isLevelTasksDirty = true;
+        m_levelRanges.clear();
         m_blas.clear();
         m_topology.clear();
         m_bounds.clear();
@@ -354,6 +470,7 @@ namespace bdt
         m_primitiveBuffer.reset();
         m_descriptorBuffer.reset();
         m_skinnedBoundsBuffer.reset();
+        m_levelTaskBuffer.reset();
         m_isStorageDirty = false;
         m_isBoundsDirty = false;
     }
@@ -380,5 +497,10 @@ namespace bdt
     bool RTBVHStorage::IsStorageDirty() const
     {
         return m_isStorageDirty;
+    }
+
+    uint64 RTBVHStorage::GetBLASRevision() const
+    {
+        return m_blasRevision;
     }
 }

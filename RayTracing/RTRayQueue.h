@@ -1,5 +1,6 @@
-
 #pragma once
+#include <Core/Defines.h>
+#include <Core/Types.h>
 
 namespace bdt
 {
@@ -27,10 +28,19 @@ namespace bdt
         void BindRayBuffer() const;
         void BindNextRayBuffer() const;
         void BindHitBuffer() const;
+        void BindSurfaceBuffer() const;
+        void BindDirectLightingBuffer() const;
+        bool PrepareAmbientOcclusionBuffer();
+        void BindAmbientOcclusionBuffer() const;
+        bool IsAmbientOcclusionReady() const;
+        bool SetAmbientOcclusionReady(bool ready);
 
         GLStorageBuffer* GetRayBuffer() const;
         GLStorageBuffer* GetNextRayBuffer() const;
         GLStorageBuffer* GetHitBuffer() const;
+        GLStorageBuffer* GetSurfaceBuffer() const;
+        GLStorageBuffer* GetDirectLightingBuffer() const;
+        GLStorageBuffer* GetAmbientOcclusionBuffer() const;
 
     /*==================================//
     //           Ray Counters           //
@@ -39,7 +49,10 @@ namespace bdt
         bool SetInitialRayCount(uint32 count);
         bool ResetNextRayCounter();
 
+        // Reserved capacity and the current frame request are distinct.
         uint32 GetMaxRayCount() const;
+        uint32 GetRayLimit() const;
+        uint32 GetPixelCount() const;
         void BindRayCounter() const;
         void BindNextRayCounter() const;
 
@@ -65,10 +78,16 @@ namespace bdt
 
         uint32 m_maxRayCount{ 0 };
         uint32 m_maxPixelCount{ 0 };
+        uint32 m_rayLimit{ 0 };
+        uint32 m_pixelCount{ 0 };
 
         // Ray Queues
         GLStorageBufferUPtr m_rayBuffer;
         GLStorageBufferUPtr m_nextRayBuffer;
+        GLStorageBufferUPtr m_surfaceBuffer;
+        GLStorageBufferUPtr m_directLightingBuffer;
+        GLStorageBufferUPtr m_ambientOcclusionBuffer;
+        bool m_ambientOcclusionReady{ false };
 
         // Hit Results
         GLStorageBufferUPtr m_hitBuffer;
@@ -78,7 +97,7 @@ namespace bdt
         GLStorageBufferUPtr m_nextRayCounterBuffer;
 
         // Indirect Dispatch
-        GLuint m_dispatchCommandBuffer{ 0 };
+        uint32 m_dispatchCommandBuffer{ 0 };
 
         // Pixel Accumulation
         GLStorageBufferUPtr m_accumulationBuffer;

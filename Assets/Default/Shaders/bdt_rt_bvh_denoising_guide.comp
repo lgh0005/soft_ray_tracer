@@ -1,0 +1,142 @@
+#version 460 core
+layout(local_size_x=64) in;
+struct GPUStaticVertex
+{
+    vec4 position;
+    vec4 normal;
+    vec4 uv;
+};
+
+struct GPUMeshDescriptor
+{
+    uint vertexOffset;
+    uint vertexCount;
+    uint triangleOffset;
+    uint triangleCount;
+    uint meshType;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+struct GPUInstance
+{
+    mat4 worldMatrix;
+    mat4 inverseWorldMatrix;
+
+    uint meshIndex;
+    uint materialIndex;
+    uint boneOffset;
+    uint boneCount;
+
+    uint skinnedVertexOffset;
+    uint blasBoundsOffset;
+    uint pad1;
+    uint pad2;
+};
+
+
+
+
+
+struct GPUSurfaceData
+{
+    vec4 worldPosition;
+    vec4 worldNormal;
+    vec4 albedo;
+    vec4 emission;
+    vec4 materialParams; // x=metallic, y=roughness, z=material AO, w=transmission
+    uint materialIndex;
+    uint instanceIndex;
+    uint valid;
+    uint pad0;
+};
+
+struct GPURay
+{
+    vec4 origin;
+    vec4 direction;
+};
+
+struct GPURayPayload
+{
+    vec4 throughput;
+
+    uint pixelIndex;
+    uint depth;
+    uint flags;
+    uint pad0;
+};
+
+struct GPURayWorkItem
+{
+    GPURay ray;
+    GPURayPayload payload;
+};
+
+
+struct GPUHit {vec4 intersection;uvec4 identifiers;};
+struct Guide
+{
+    vec4 position;
+    vec4 normal;
+    vec4 previousPosition;
+    uvec4 ids;
+};
+
+layout(std430,binding=0) readonly buffer Rays {GPURayWorkItem rays[];};
+layout(std430,binding=1) readonly buffer Hits {GPUHit hits[];};
+layout(std430,binding=3) readonly buffer StaticVertices {GPUStaticVertex vertices[];};
+layout(std430,binding=4) readonly buffer Indices {uint indices[];};
+layout(std430,binding=5) readonly buffer Meshes {GPUMeshDescriptor meshes[];};
+layout(std430,binding=6) readonly buffer Instances {GPUInstance instances[];};
+layout(std430,binding=7) readonly buffer PreviousVertices {GPUStaticVertex previousVertices[];};
+layout(std430,binding=8) readonly buffer PreviousInstances {GPUInstance previousInstances[];};
+layout(std430,binding=21) readonly buffer Surfaces {GPUSurfaceData surfaces[];};
+layout(std430,binding=22) writeonly buffer Guides {Guide guides[];};
+layout(std140, binding = 1) uniform RTFrameData
+{
+    uint pixelCount;
+    uint instanceCount;
+    uint tlasDescriptorIndex;
+    uint pad1;
+};
+uniform uint resetHistory;
+void main()
+{
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= pixelCount) return;
+    uint pixel = rays[i].payload.pixelIndex;
+    if (pixel >= pixelCount) return;
+    GPUSurfaceData surface = surfaces[i];
+    Guide guide;
+    guide.position = surface.worldPosition;
+    guide.normal = vec4(surface.worldNormal.xyz, surface.materialParams.y);
+    guide.previousPosition = guide.position;
+    guide.ids = uvec4(surface.instanceIndex, surface.materialIndex, surface.valid, 0u);
+    if (surface.valid != 0u && resetHistory == 0u)
+    {
+        GPUHit hit = hits[i];
+        GPUInstance old = previousInstances[surface.instanceIndex];
+        GPUMeshDescriptor mesh = meshes[instances[surface.instanceIndex].meshIndex];
+        uint first = hit.identifiers.y * 3u;
+        uvec3 idx = uvec3(indices[first], indices[first + 1u], indices[first + 2u]);
+        vec3 a, b, c;
+        if (mesh.meshType == 1u)
+        {
+            a = previousVertices[old.skinnedVertexOffset + idx.x].position.xyz;
+            b = previousVertices[old.skinnedVertexOffset + idx.y].position.xyz;
+            c = previousVertices[old.skinnedVertexOffset + idx.z].position.xyz;
+        }
+        else
+        {
+            a = vertices[mesh.vertexOffset + idx.x].position.xyz;
+            b = vertices[mesh.vertexOffset + idx.y].position.xyz;
+            c = vertices[mesh.vertexOffset + idx.z].position.xyz;
+        }
+        float u = hit.intersection.y;
+        float v = hit.intersection.z;
+        guide.previousPosition = old.worldMatrix * vec4((1.0 - u - v) * a + u * b + v * c, 1.0);
+    }
+    guides[pixel] = guide;
+}

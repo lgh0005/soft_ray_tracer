@@ -52,6 +52,28 @@ namespace bdt
         return true;
     }
 
+    bool RTBVHBuilder::SetBuildSettings(const RTBVHBuildSettings& settings)
+    {
+        if (!m_storage || !m_updateStorage) return false;
+        const RTBVHBuildSettings previous = m_storage->GetBuildSettings();
+        if (!m_storage->SetBuildSettings(settings)) return false;
+        if (previous.blasBuildMode != settings.blasBuildMode || previous.blasMaxLeafPrimitives != settings.blasMaxLeafPrimitives)
+            m_updateStorage->MarkBLASDirty();
+        else if (previous.tlasBuildMode != settings.tlasBuildMode || previous.tlasMaxLeafPrimitives != settings.tlasMaxLeafPrimitives)
+            m_updateStorage->MarkTLASDirty();
+        return true;
+    }
+
+    bool RTBVHBuilder::PrepareRefit(RTBVHRefitData& data, bool parallelInternalRefit)
+    {
+        data = {};
+        if (!m_storage || !m_updateStorage) return false;
+        data.refitBLAS = m_updateStorage->IsBLASRefitRequired();
+        data.refitTLAS = m_updateStorage->IsTLASRefitRequired();
+        data.maxSkinnedNodeCount = m_updateStorage->GetMaxSkinnedNodeCount();
+        return m_storage->PrepareRefit(data, parallelInternalRefit);
+    }
+
     bool RTBVHBuilder::PrepareSkinnedBounds()
     {
         if (!m_storage || !m_updateStorage) return false;

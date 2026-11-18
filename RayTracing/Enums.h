@@ -33,6 +33,11 @@ namespace bdt
         BVHDescriptor,
         BVHSkinnedBounds,
 
+        // Screen
+        Surface,
+        DirectLighting,
+        AmbientOcclusion,
+
         Count
     };
 
@@ -40,13 +45,18 @@ namespace bdt
 	{
         Camera = 0,
         RTFrame,
+        RenderSettings,
+        Environment,
 		Count
 	};
 
     enum class EBVHBuildMode : uint8
     {
         MedianSplit = 0,
-        SAH
+        SAH, // Existing 12-bin SAH
+        SAH8,
+        SAH16,
+        SAH32
     };
 
     enum class ERTMeshType : uint32

@@ -10,6 +10,7 @@ namespace bdt
 	BDT_CLASS_PTR(PointLightActor)
 	BDT_CLASS_PTR(SpotLightActor)
 	BDT_CLASS_PTR(DirectionalLightActor)
+	BDT_CLASS_PTR(RectAreaLightActor)
 	BDT_CLASS_PTR(ImageBasedLight)
 	BDT_CLASS_PTR(World)
 		
@@ -56,6 +57,9 @@ namespace bdt
 		template<typename... TArgs>
 		DirectionalLightActor* AddDirectionalLightActor(TArgs&&... args);
 
+		template<typename... TArgs>
+		RectAreaLightActor* AddRectAreaLightActor(TArgs&&... args);
+
 		void SetEnvironmentImage(const String& path);
 		void CreateImageBasedLight();
 
@@ -76,6 +80,7 @@ namespace bdt
 		List<PointLightActorUPtr> m_pointLightActors;
 		List<SpotLightActorUPtr> m_spotLightActors;
 		List<DirectionalLightActorUPtr> m_directionalLightActors;
+		List<RectAreaLightActorUPtr> m_rectAreaLightActors;
 
 	private:
 		String m_tag;
